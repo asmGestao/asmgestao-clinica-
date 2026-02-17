@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASM Gestão Clínica</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -79,6 +80,7 @@
         .btn-warning { background: #f4a261; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-info { background: #17a2b8; color: white; }
+        .btn-gold { background: #d4af37; color: #264653; font-weight: bold; }
         
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
@@ -552,7 +554,7 @@
             </div>
         </div>
         
-        <!-- RELATÓRIOS -->
+        <!-- RELATÓRIOS PRINCIPAL FUNCIONAL -->
         <div id="relatorios" class="section">
             <h2>Relatórios de Gestão</h2>
             
@@ -572,6 +574,11 @@
                 </div>
             </div>
             
+            <div id="mainReportActions" style="display: none; margin: 20px 0;">
+                <button class="btn btn-gold" onclick="generateMainPDF()">📄 Gerar PDF do Mês</button>
+                <button class="btn btn-whatsapp" onclick="sendMainReportWhatsApp()">📱 Enviar Resumo WhatsApp</button>
+            </div>
+            
             <h3 style="margin-top: 30px;">Pacientes Atendidos</h3>
             <table>
                 <thead>
@@ -579,6 +586,11 @@
                 </thead>
                 <tbody id="reportTable"></tbody>
             </table>
+            
+            <div id="mainReportPreview" style="display: none; margin-top: 30px;">
+                <h4>Pré-visualização do Relatório</h4>
+                <div class="report-preview" id="mainReportContent"></div>
+            </div>
         </div>
     </div>
     
@@ -723,7 +735,7 @@
                 <div id="evolutionsList" style="margin-top: 20px;"></div>
             </div>
             
-            <!-- ABA RELATÓRIO MELHORADA -->
+            <!-- ABA RELATÓRIO MELHORADA COM PDF -->
             <div id="tabRelatorio" class="tab-content">
                 <div class="form-group">
                     <label>Mês/Ano do Relatório</label>
@@ -736,9 +748,9 @@
                     <div class="report-preview" id="reportContent"></div>
                     
                     <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                        <button class="btn btn-gold" onclick="generatePatientPDF()">📄 Gerar PDF</button>
                         <button class="btn btn-whatsapp" onclick="sendReportWhatsApp()">📱 Enviar WhatsApp</button>
                         <button class="btn btn-secondary" onclick="copyReport()">📋 Copiar Texto</button>
-                        <button class="btn btn-info" onclick="printReport()">🖨️ Imprimir / PDF</button>
                     </div>
                 </div>
             </div>
@@ -814,6 +826,7 @@
         let currentApptId = null;
         let currentReport = '';
         let selectedCharges = new Set();
+        let currentMainReport = '';
 
         // INICIALIZAÇÃO
         document.addEventListener('DOMContentLoaded', function() {
@@ -1557,6 +1570,168 @@
             document.getElementById('reportContainer').style.display = 'block';
         }
 
+        // PDF DO PACIENTE - AZUL MARINHO E DOURADO
+        function generatePatientPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const sig = getProfessionalSignature();
+            
+            // Configurar cores
+            const navyBlue = [38, 70, 83]; // #264653
+            const gold = [212, 175, 55]; // #d4af37
+            
+            // Fundo azul marinho na borda
+            doc.setFillColor(...navyBlue);
+            doc.rect(0, 0, 210, 297, 'F');
+            
+            // Folha branca interna
+            doc.setFillColor(255, 255, 255);
+            doc.rect(10, 10, 190, 277, 'F');
+            
+            // Cabeçalho
+            doc.setFillColor(...navyBlue);
+            doc.rect(10, 10, 190, 40, 'F');
+            
+            // Título em dourado
+            doc.setTextColor(...gold);
+            doc.setFontSize(22);
+            doc.setFont('helvetica', 'bold');
+            doc.text(sig.clinic, 105, 30, { align: 'center' });
+            
+            doc.setFontSize(12);
+            if (sig.name) doc.text(sig.name, 105, 38, { align: 'center' });
+            if (sig.crefito) doc.text(sig.crefito, 105, 44, { align: 'center' });
+            
+            // Conteúdo em azul marinho
+            let y = 65;
+            doc.setTextColor(...navyBlue);
+            
+            // Dados do paciente
+            const patient = patients.find(p => p.id === currentPatientId);
+            const month = document.getElementById('reportMonthPatient').value;
+            const monthName = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('RELATÓRIO MENSAL', 105, y, { align: 'center' });
+            y += 10;
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Paciente: ' + patient.name, 20, y);
+            y += 7;
+            doc.text('Período: ' + monthName, 20, y);
+            y += 15;
+            
+            // Sessões
+            const monthAppts = appointments.filter(a => {
+                if (a.patientId !== currentPatientId || a.cancelled) return false;
+                const ap = a.date.split('-');
+                return parseInt(ap[0]) === parseInt(month.split('-')[0]) && parseInt(ap[1]) === parseInt(month.split('-')[1]);
+            });
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('SESSÕES REALIZADAS (' + monthAppts.length + ')', 20, y);
+            y += 8;
+            
+            doc.setFont('helvetica', 'normal');
+            if (monthAppts.length > 0) {
+                monthAppts.forEach(a => {
+                    doc.text('• ' + formatDate(a.date) + ' às ' + a.time, 25, y);
+                    y += 6;
+                });
+            } else {
+                doc.text('Nenhuma sessão registrada.', 25, y);
+                y += 6;
+            }
+            y += 10;
+            
+            // Evoluções
+            const monthEvos = evolutions.filter(e => {
+                if (e.patientId !== currentPatientId) return false;
+                const ep = e.date.split('-');
+                return parseInt(ep[0]) === parseInt(month.split('-')[0]) && parseInt(ep[1]) === parseInt(month.split('-')[1]);
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('EVOLUÇÃO CLÍNICA', 20, y);
+            y += 8;
+            
+            doc.setFont('helvetica', 'normal');
+            if (monthEvos.length === 0) {
+                doc.text('Nenhuma evolução registrada neste período.', 25, y);
+                y += 6;
+            } else {
+                monthEvos.forEach((evo, i) => {
+                    // Verificar se precisa de nova página
+                    if (y > 270) {
+                        doc.addPage();
+                        doc.setFillColor(...navyBlue);
+                        doc.rect(0, 0, 210, 297, 'F');
+                        doc.setFillColor(255, 255, 255);
+                        doc.rect(10, 10, 190, 277, 'F');
+                        y = 25;
+                    }
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(...gold);
+                    doc.text('Sessão ' + (i + 1) + ' - ' + formatDate(evo.date), 25, y);
+                    y += 6;
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(...navyBlue);
+                    
+                    // Quebrar texto em linhas
+                    const lines = doc.splitTextToSize(evo.text, 160);
+                    lines.forEach(line => {
+                        if (y > 270) {
+                            doc.addPage();
+                            doc.setFillColor(...navyBlue);
+                            doc.rect(0, 0, 210, 297, 'F');
+                            doc.setFillColor(255, 255, 255);
+                            doc.rect(10, 10, 190, 277, 'F');
+                            y = 25;
+                        }
+                        doc.text(line, 25, y);
+                        y += 5;
+                    });
+                    y += 8;
+                });
+            }
+            
+            // Assinatura
+            if (y > 250) {
+                doc.addPage();
+                doc.setFillColor(...navyBlue);
+                doc.rect(0, 0, 210, 297, 'F');
+                doc.setFillColor(255, 255, 255);
+                doc.rect(10, 10, 190, 277, 'F');
+                y = 200;
+            } else {
+                y = 250;
+            }
+            
+            doc.setTextColor(...navyBlue);
+            doc.line(60, y, 150, y);
+            y += 8;
+            doc.setFont('helvetica', 'bold');
+            doc.text(sig.name || 'Assinatura do Profissional', 105, y, { align: 'center' });
+            if (sig.crefito) {
+                y += 6;
+                doc.text(sig.crefito, 105, y, { align: 'center' });
+            }
+            
+            // Rodapé
+            doc.setFillColor(...navyBlue);
+            doc.rect(10, 280, 190, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.text('© 2024 ASM Gestão Clínica - Todos os direitos reservados', 105, 285, { align: 'center' });
+            
+            doc.save('Relatorio_' + patient.name.split(' ')[0] + '_' + month + '.pdf');
+        }
+
         function copyReport() {
             navigator.clipboard.writeText(currentReport).then(() => alert('Relatório copiado!'));
         }
@@ -1564,37 +1739,6 @@
         function sendReportWhatsApp() {
             const patient = patients.find(p => p.id === currentPatientId);
             window.open('https://wa.me/55' + patient.phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(currentReport), '_blank');
-        }
-
-        function printReport() {
-            const printWindow = window.open('', '_blank');
-            const reportContent = document.getElementById('reportContent').innerHTML;
-            
-            printWindow.document.write(`
-                <html>
-                <head>
-                    <title>Relatório - ASM Gestão Clínica</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
-                        .report-header { text-align: center; border-bottom: 2px solid #264653; padding-bottom: 20px; margin-bottom: 30px; }
-                        .report-section { margin: 20px 0; }
-                        h2 { color: #264653; }
-                        h4 { color: #2a9d8f; margin-bottom: 10px; }
-                        ul { padding-left: 20px; }
-                        @media print { body { padding: 0; } }
-                    </style>
-                </head>
-                <body>
-                    ${reportContent}
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-            }, 250);
         }
 
         // FLUXO DE CAIXA
@@ -1687,7 +1831,7 @@
             renderCashFlow();
         }
 
-        // RELATÓRIOS GERAIS
+        // RELATÓRIOS GERAIS FUNCIONAL
         function renderReports() {
             const month = document.getElementById('reportMonth').value;
             if (!month) return;
@@ -1707,10 +1851,19 @@
             document.getElementById('reportSessions').textContent = monthAppts.length;
             document.getElementById('reportRevenue').textContent = 'R$ ' + revenue.toFixed(2);
             
+            // Mostrar botões de ação
+            if (monthAppts.length > 0) {
+                document.getElementById('mainReportActions').style.display = 'block';
+            } else {
+                document.getElementById('mainReportActions').style.display = 'none';
+            }
+            
             // Group by patient
             const stats = {};
             monthAppts.forEach(a => {
-                if (!stats[a.patientId]) stats[a.patientId] = { count: 0, total: 0 };
+                if (!stats[a.patientId]) stats[a.patientId] = { count: 0, total: 0, name: '' };
+                const p = patients.find(x => x.id === a.patientId);
+                stats[a.patientId].name = p ? p.name : '-';
                 stats[a.patientId].count++;
                 if (a.paid) stats[a.patientId].total += parseFloat(a.value || 0);
             });
@@ -1718,13 +1871,184 @@
             const tbody = document.getElementById('reportTable');
             tbody.innerHTML = '';
             
+            // Preparar dados para relatório
+            let reportData = [];
+            for (let pid in stats) {
+                const s = stats[pid];
+                const row = document.createElement('tr');
+                row.innerHTML = '<td>' + s.name + '</td><td>' + s.count + '</td><td>R$ ' + s.total.toFixed(2) + '</td>';
+                tbody.appendChild(row);
+                
+                reportData.push({
+                    name: s.name,
+                    sessions: s.count,
+                    total: s.total
+                });
+            }
+            
+            // Gerar texto do relatório principal
+            const sig = getProfessionalSignature();
+            const monthName = new Date(year, mon - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            
+            let reportText = '*' + sig.clinic + '*\n';
+            if (sig.name) reportText += sig.name + '\n';
+            if (sig.crefito) reportText += sig.crefito + '\n';
+            reportText += '═══════════════════\n\n';
+            reportText += '*RELATÓRIO GERENCIAL - ' + monthName.toUpperCase() + '*\n\n';
+            reportText += '📊 *RESUMO DO MÊS*\n';
+            reportText += 'Total de atendimentos: ' + monthAppts.length + '\n';
+            reportText += 'Faturamento: R$ ' + revenue.toFixed(2) + '\n\n';
+            reportText += '👥 *PACIENTES ATENDIDOS*\n';
+            
+            reportData.forEach((item, idx) => {
+                reportText += (idx + 1) + '. ' + item.name + '\n';
+                reportText += '   Sessões: ' + item.sessions + ' | Total: R$ ' + item.total.toFixed(2) + '\n';
+            });
+            
+            currentMainReport = reportText;
+            
+            // Preview
+            let previewHTML = '<h3>' + sig.clinic + '</h3>';
+            if (sig.name) previewHTML += '<p><strong>' + sig.name + '</strong></p>';
+            previewHTML += '<h4>Relatório Gerencial - ' + monthName + '</h4>';
+            previewHTML += '<p><strong>Total de atendimentos:</strong> ' + monthAppts.length + '</p>';
+            previewHTML += '<p><strong>Faturamento:</strong> R$ ' + revenue.toFixed(2) + '</p>';
+            previewHTML += '<h4>Pacientes Atendidos:</h4><ul>';
+            reportData.forEach(item => {
+                previewHTML += '<li>' + item.name + ' - ' + item.sessions + ' sessões (R$ ' + item.total.toFixed(2) + ')</li>';
+            });
+            previewHTML += '</ul>';
+            
+            document.getElementById('mainReportContent').innerHTML = previewHTML;
+            document.getElementById('mainReportPreview').style.display = 'block';
+        }
+
+        // PDF DO RELATÓRIO PRINCIPAL
+        function generateMainPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const sig = getProfessionalSignature();
+            const month = document.getElementById('reportMonth').value;
+            const monthName = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            
+            // Configurar cores
+            const navyBlue = [38, 70, 83];
+            const gold = [212, 175, 55];
+            
+            // Fundo azul marinho
+            doc.setFillColor(...navyBlue);
+            doc.rect(0, 0, 210, 297, 'F');
+            
+            // Folha branca interna
+            doc.setFillColor(255, 255, 255);
+            doc.rect(10, 10, 190, 277, 'F');
+            
+            // Cabeçalho
+            doc.setFillColor(...navyBlue);
+            doc.rect(10, 10, 190, 35, 'F');
+            
+            // Título em dourado
+            doc.setTextColor(...gold);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text(sig.clinic, 105, 28, { align: 'center' });
+            
+            doc.setFontSize(11);
+            if (sig.name) doc.text(sig.name, 105, 35, { align: 'center' });
+            if (sig.crefito) doc.text(sig.crefito, 105, 40, { align: 'center' });
+            
+            // Conteúdo
+            let y = 60;
+            doc.setTextColor(...navyBlue);
+            
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('RELATÓRIO GERENCIAL', 105, y, { align: 'center' });
+            y += 10;
+            
+            doc.setFontSize(12);
+            doc.text(monthName.toUpperCase(), 105, y, { align: 'center' });
+            y += 15;
+            
+            // Dados
+            const parts = month.split('-');
+            const year = parseInt(parts[0]);
+            const mon = parseInt(parts[1]);
+            
+            const monthAppts = appointments.filter(a => {
+                if (a.cancelled) return false;
+                const ap = a.date.split('-');
+                return parseInt(ap[0]) === year && parseInt(ap[1]) === mon;
+            });
+            
+            const revenue = monthAppts.filter(a => a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('RESUMO DO MÊS', 20, y);
+            y += 10;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text('Total de atendimentos: ' + monthAppts.length, 25, y);
+            y += 7;
+            doc.text('Faturamento: R$ ' + revenue.toFixed(2), 25, y);
+            y += 15;
+            
+            // Tabela de pacientes
+            doc.setFont('helvetica', 'bold');
+            doc.text('PACIENTES ATENDIDOS', 20, y);
+            y += 10;
+            
+            // Cabeçalho da tabela
+            doc.setFillColor(...navyBlue);
+            doc.rect(20, y - 5, 170, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('Paciente', 25, y);
+            doc.text('Sessões', 120, y);
+            doc.text('Total', 160, y);
+            y += 10;
+            
+            // Dados
+            const stats = {};
+            monthAppts.forEach(a => {
+                if (!stats[a.patientId]) stats[a.patientId] = { count: 0, total: 0 };
+                stats[a.patientId].count++;
+                if (a.paid) stats[a.patientId].total += parseFloat(a.value || 0);
+            });
+            
+            doc.setTextColor(...navyBlue);
+            doc.setFont('helvetica', 'normal');
+            
             for (let pid in stats) {
                 const p = patients.find(x => x.id === pid);
                 const s = stats[pid];
-                const row = document.createElement('tr');
-                row.innerHTML = '<td>' + (p ? p.name : '-') + '</td><td>' + s.count + '</td><td>R$ ' + s.total.toFixed(2) + '</td>';
-                tbody.appendChild(row);
+                
+                if (y > 270) {
+                    doc.addPage();
+                    doc.setFillColor(...navyBlue);
+                    doc.rect(0, 0, 210, 297, 'F');
+                    doc.setFillColor(255, 255, 255);
+                    doc.rect(10, 10, 190, 277, 'F');
+                    y = 25;
+                }
+                
+                doc.text((p ? p.name.substring(0, 35) : '-'), 25, y);
+                doc.text(s.count.toString(), 125, y);
+                doc.text('R$ ' + s.total.toFixed(2), 160, y);
+                y += 7;
             }
+            
+            // Rodapé
+            doc.setFillColor(...navyBlue);
+            doc.rect(10, 280, 190, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.text('© 2024 ASM Gestão Clínica - Todos os direitos reservados', 105, 285, { align: 'center' });
+            
+            doc.save('Relatorio_Gerencial_' + month + '.pdf');
+        }
+
+        function sendMainReportWhatsApp() {
+            window.open('https://wa.me/?text=' + encodeURIComponent(currentMainReport), '_blank');
         }
 
         // EXPORTAR EXCEL
