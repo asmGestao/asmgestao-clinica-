@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASM Fisioterapia - Dra. Andresa Augusto</title>
+    <title>ASM Gestão Clínica</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -75,6 +75,7 @@
         .btn-success { background: #52b788; color: white; }
         .btn-danger { background: #e76f51; color: white; }
         .btn-whatsapp { background: #25d366; color: white; }
+        .btn-warning { background: #f4a261; color: white; }
         
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
@@ -140,6 +141,30 @@
             margin: 2px 0;
             border-radius: 3px;
             font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .appointment.cancelled {
+            background: #adb5bd;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        
+        .appointment-actions {
+            display: flex;
+            gap: 3px;
+        }
+        
+        .appointment-actions button {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
         }
         
         .modal {
@@ -249,12 +274,31 @@
             max-height: 400px;
             overflow-y: auto;
         }
+        
+        .settings-box {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #264653;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #264653;
+            color: white;
+            margin-top: 40px;
+            font-size: 12px;
+        }
+        
+        .footer p { margin: 5px 0; opacity: 0.8; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🏥 ASM Fisioterapia</h1>
-        <p>Dra. Andresa Augusto - Gestão Clínica</p>
+        <h1>🏥 ASM Gestão Clínica</h1>
+        <p id="headerSubtitle">Sistema de Gestão para Fisioterapeutas</p>
     </div>
     
     <div class="nav">
@@ -263,9 +307,39 @@
         <button onclick="showSection('financeiro')">💰 Financeiro</button>
         <button onclick="showSection('fluxo')">📊 Fluxo de Caixa</button>
         <button onclick="showSection('relatorios')">📈 Relatórios</button>
+        <button onclick="showSection('configuracoes')">⚙️ Configurações</button>
     </div>
     
     <div class="container">
+        <!-- CONFIGURAÇÕES -->
+        <div id="configuracoes" class="section">
+            <h2>⚙️ Configurações do Sistema</h2>
+            <p style="margin-bottom: 20px; color: #666;">Configure aqui os dados do profissional que aparecerão nos relatórios e mensagens.</p>
+            
+            <div class="settings-box">
+                <div class="form-group">
+                    <label>Nome do Profissional *</label>
+                    <input type="text" id="configName" placeholder="Ex: Dra. Andresa Augusto">
+                </div>
+                
+                <div class="form-group">
+                    <label>Número do CREFITO *</label>
+                    <input type="text" id="configCrefito" placeholder="Ex: 123456-F">
+                </div>
+                
+                <div class="form-group">
+                    <label>Nome da Clínica (opcional)</label>
+                    <input type="text" id="configClinic" placeholder="Ex: ASM Fisioterapia">
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveConfig()">💾 Salvar Configurações</button>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                <strong>ℹ️ Importante:</strong> Estas informações serão usadas automaticamente nas mensagens do WhatsApp e nos relatórios gerados pelo sistema.
+            </div>
+        </div>
+        
         <!-- AGENDA -->
         <div id="agenda" class="section active">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -454,8 +528,9 @@
                 <textarea id="apptNotes" rows="3"></textarea>
             </div>
             
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button class="btn btn-whatsapp" id="btnWhatsAppt" onclick="sendAppointmentWhatsApp()" style="display: none;">📱 WhatsApp</button>
+                <button class="btn btn-warning" id="btnToggleCancel" onclick="toggleCancelAppointment()" style="display: none;">❌ Cancelar</button>
                 <button class="btn btn-primary" onclick="saveAppointment()" style="margin-left: auto;">Salvar</button>
             </div>
         </div>
@@ -598,8 +673,22 @@
         </div>
     </div>
 
+    <div class="footer">
+        <p><strong>ASM Gestão Clínica</strong></p>
+        <p>© 2024 Dra. Andresa Augusto - Todos os direitos reservados</p>
+        <p>Proibida a reprodução total ou parcial sem autorização expressa</p>
+        <p>Desenvolvido exclusivamente para uso profissional autorizado</p>
+    </div>
+
     <script>
-// DADOS
+// CONFIGURAÇÕES GLOBAIS
+        let config = JSON.parse(localStorage.getItem('asm_config')) || {
+            professionalName: '',
+            crefito: '',
+            clinicName: 'ASM Fisioterapia'
+        };
+        
+        // DADOS
         let patients = JSON.parse(localStorage.getItem('asm_patients')) || [];
         let appointments = JSON.parse(localStorage.getItem('asm_appointments')) || [];
         let evolutions = JSON.parse(localStorage.getItem('asm_evolutions')) || [];
@@ -612,6 +701,7 @@
 
         // INICIALIZAÇÃO
         document.addEventListener('DOMContentLoaded', function() {
+            loadConfig();
             renderCalendar();
             renderPatients();
             updateFinancialSummary();
@@ -621,6 +711,46 @@
             document.getElementById('cashFlowMonth').value = today;
             document.getElementById('reportMonth').value = today;
         });
+
+        // CONFIGURAÇÕES
+        function loadConfig() {
+            document.getElementById('configName').value = config.professionalName;
+            document.getElementById('configCrefito').value = config.crefito;
+            document.getElementById('configClinic').value = config.clinicName;
+            
+            updateHeader();
+        }
+        
+        function saveConfig() {
+            config.professionalName = document.getElementById('configName').value.trim();
+            config.crefito = document.getElementById('configCrefito').value.trim();
+            config.clinicName = document.getElementById('configClinic').value.trim() || 'ASM Fisioterapia';
+            
+            if (!config.professionalName || !config.crefito) {
+                alert('Preencha o nome do profissional e o CREFITO!');
+                return;
+            }
+            
+            localStorage.setItem('asm_config', JSON.stringify(config));
+            updateHeader();
+            alert('Configurações salvas com sucesso!');
+        }
+        
+        function updateHeader() {
+            const subtitle = document.getElementById('headerSubtitle');
+            if (config.professionalName) {
+                subtitle.textContent = config.professionalName + ' - CREFITO ' + config.crefito;
+            } else {
+                subtitle.textContent = 'Configure seus dados em "Configurações"';
+            }
+        }
+        
+        function getProfessionalSignature() {
+            const name = config.professionalName || 'Profissional';
+            const crefito = config.crefito ? 'CREFITO ' + config.crefito : '';
+            const clinic = config.clinicName || 'ASM Fisioterapia';
+            return { name, crefito, clinic };
+        }
 
         // NAVEGAÇÃO
         function showSection(section) {
@@ -673,7 +803,6 @@
                     div.style.color = 'white';
                 }
                 
-                // CORREÇÃO DO BUG DE DATA
                 const dayAppointments = appointments.filter(a => {
                     const parts = a.date.split('-');
                     const y = parseInt(parts[0]);
@@ -685,12 +814,32 @@
                 dayAppointments.forEach(appt => {
                     const patient = patients.find(p => p.id === appt.patientId);
                     const apptDiv = document.createElement('div');
-                    apptDiv.className = 'appointment';
-                    apptDiv.textContent = appt.time + ' ' + (patient ? patient.name.split(' ')[0] : '');
-                    apptDiv.onclick = function(e) {
+                    apptDiv.className = 'appointment' + (appt.cancelled ? ' cancelled' : '');
+                    apptDiv.innerHTML = '<span>' + appt.time + ' ' + (patient ? patient.name.split(' ')[0] : '') + '</span>';
+                    
+                    const actions = document.createElement('div');
+                    actions.className = 'appointment-actions';
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = '✎';
+                    editBtn.title = 'Editar';
+                    editBtn.onclick = function(e) {
                         e.stopPropagation();
                         editAppointment(appt.id);
                     };
+                    
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.textContent = appt.cancelled ? '↩' : '✕';
+                    cancelBtn.title = appt.cancelled ? 'Reativar' : 'Cancelar';
+                    cancelBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        toggleCancelAppointmentDirect(appt.id);
+                    };
+                    
+                    actions.appendChild(editBtn);
+                    actions.appendChild(cancelBtn);
+                    apptDiv.appendChild(actions);
+                    
                     div.appendChild(apptDiv);
                 });
                 
@@ -712,7 +861,7 @@
             list.innerHTML = '';
             
             patients.forEach(p => {
-                const patientAppts = appointments.filter(a => a.patientId === p.id);
+                const patientAppts = appointments.filter(a => a.patientId === p.id && !a.cancelled);
                 const pending = patientAppts.filter(a => !a.paid).length;
                 
                 const card = document.createElement('div');
@@ -839,6 +988,7 @@
             document.getElementById('apptValue').value = '';
             document.getElementById('apptNotes').value = '';
             document.getElementById('btnWhatsAppt').style.display = 'none';
+            document.getElementById('btnToggleCancel').style.display = 'none';
             
             if (year !== undefined) {
                 const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
@@ -861,6 +1011,16 @@
             document.getElementById('apptValue').value = appt.value;
             document.getElementById('apptNotes').value = appt.notes || '';
             document.getElementById('btnWhatsAppt').style.display = 'inline-block';
+            document.getElementById('btnToggleCancel').style.display = 'inline-block';
+            
+            const btnCancel = document.getElementById('btnToggleCancel');
+            if (appt.cancelled) {
+                btnCancel.textContent = '↩ Reativar Agendamento';
+                btnCancel.className = 'btn btn-success';
+            } else {
+                btnCancel.textContent = '❌ Cancelar Agendamento';
+                btnCancel.className = 'btn btn-warning';
+            }
             
             document.getElementById('appointmentModal').classList.add('active');
         }
@@ -881,7 +1041,8 @@
                 type: document.getElementById('apptType').value,
                 value: document.getElementById('apptValue').value || patient.defaultValue || 0,
                 notes: document.getElementById('apptNotes').value,
-                paid: currentApptId ? appointments.find(a => a.id === currentApptId).paid : false
+                paid: currentApptId ? appointments.find(a => a.id === currentApptId).paid : false,
+                cancelled: currentApptId ? appointments.find(a => a.id === currentApptId).cancelled : false
             };
             
             if (currentApptId) {
@@ -897,13 +1058,43 @@
             updateFinancialSummary();
         }
 
+        function toggleCancelAppointment() {
+            if (!currentApptId) return;
+            toggleCancelAppointmentDirect(currentApptId);
+            closeModal('appointmentModal');
+        }
+        
+        function toggleCancelAppointmentDirect(id) {
+            const appt = appointments.find(a => a.id === id);
+            appt.cancelled = !appt.cancelled;
+            localStorage.setItem('asm_appointments', JSON.stringify(appointments));
+            renderCalendar();
+            updateFinancialSummary();
+        }
+
         function sendAppointmentWhatsApp() {
             if (!currentApptId) return;
             
             const appt = appointments.find(a => a.id === currentApptId);
             const patient = patients.find(p => p.id === appt.patientId);
+            const sig = getProfessionalSignature();
             
-            const msg = 'Olá ' + patient.name + ',\n\nLembramos que você tem agendamento na ASM Fisioterapia com Dra. Andresa Augusto.\n\n📅 Data: ' + formatDate(appt.date) + '\n⏰ Horário: ' + appt.time + '\n\nAguardamos você! 💚';
+            const clinicName = sig.clinic;
+            const profName = sig.name;
+            const crefito = sig.crefito;
+            
+            let msg = 'Olá ' + patient.name + ', tudo bem? 😊\n\n';
+            msg += 'Passando para confirmar seu agendamento:\n\n';
+            msg += '📅 Data: ' + formatDate(appt.date) + '\n';
+            msg += '⏰ Horário: ' + appt.time + '\n';
+            msg += '🏥 Local: ' + clinicName + '\n\n';
+            
+            if (!appt.cancelled) {
+                msg += 'Estamos te aguardando! ' + (profName ? '\nAtenciosamente, ' + profName : '') + '\n';
+                if (crefito) msg += crefito + '\n';
+            } else {
+                msg += '⚠️ ATENÇÃO: Este agendamento foi CANCELADO.\n';
+            }
             
             window.open('https://wa.me/55' + patient.phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg), '_blank');
         }
@@ -913,7 +1104,7 @@
             const tbody = document.getElementById('financialTable');
             tbody.innerHTML = '';
             
-            const sorted = appointments.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = appointments.filter(a => !a.cancelled).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
             
             sorted.forEach(appt => {
                 const patient = patients.find(p => p.id === appt.patientId);
@@ -932,7 +1123,7 @@
         }
 
         function renderPatientFinance() {
-            const patientAppts = appointments.filter(a => a.patientId === currentPatientId);
+            const patientAppts = appointments.filter(a => a.patientId === currentPatientId && !a.cancelled);
             const paid = patientAppts.filter(a => a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
             const pending = patientAppts.filter(a => !a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
             
@@ -957,12 +1148,13 @@
         }
 
         function updateFinancialSummary() {
-            const received = appointments.filter(a => a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
-            const pending = appointments.filter(a => !a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
+            const activeAppts = appointments.filter(a => !a.cancelled);
+            const received = activeAppts.filter(a => a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
+            const pending = activeAppts.filter(a => !a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
             
             document.getElementById('totalReceived').textContent = 'R$ ' + received.toFixed(2);
             document.getElementById('totalPending').textContent = 'R$ ' + pending.toFixed(2);
-            document.getElementById('totalSessions').textContent = appointments.length;
+            document.getElementById('totalSessions').textContent = activeAppts.length;
         }
 
         function togglePayment(id) {
@@ -1020,6 +1212,8 @@
                 return;
             }
             
+            const sig = getProfessionalSignature();
+            
             const parts = month.split('-');
             const year = parseInt(parts[0]);
             const mon = parseInt(parts[1]);
@@ -1032,15 +1226,16 @@
             }).sort((a, b) => new Date(a.date) - new Date(b.date));
             
             const monthAppts = appointments.filter(a => {
-                if (a.patientId !== currentPatientId) return false;
+                if (a.patientId !== currentPatientId || a.cancelled) return false;
                 const ap = a.date.split('-');
                 return parseInt(ap[0]) === year && parseInt(ap[1]) === mon;
             });
             
             const monthName = new Date(year, mon - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
             
-            let report = 'RELATÓRIO MENSAL - ASM FISIOTERAPIA\n';
-            report += 'Dra. Andresa Augusto\n';
+            let report = 'RELATÓRIO MENSAL - ' + sig.clinic.toUpperCase() + '\n';
+            if (sig.name) report += sig.name + '\n';
+            if (sig.crefito) report += sig.crefito + '\n';
             report += '================================\n\n';
             report += 'Paciente: ' + patient.name + '\n';
             report += 'Período: ' + monthName + '\n\n';
@@ -1067,7 +1262,9 @@
                 });
             }
             
-            report += '\n💚 Agradecemos a confiança!\nASM Fisioterapia';
+            report += '\n' + sig.clinic;
+            if (sig.name) report += '\n' + sig.name;
+            if (sig.crefito) report += '\n' + sig.crefito;
             
             currentReport = report;
             document.getElementById('reportContent').textContent = report;
@@ -1129,7 +1326,7 @@
             const mon = parseInt(parts[1]);
             
             const entries = appointments.filter(a => {
-                if (!a.paid) return false;
+                if (!a.paid || a.cancelled) return false;
                 const ap = a.date.split('-');
                 return parseInt(ap[0]) === year && parseInt(ap[1]) === mon;
             });
@@ -1183,6 +1380,7 @@
             const mon = parseInt(parts[1]);
             
             const monthAppts = appointments.filter(a => {
+                if (a.cancelled) return false;
                 const ap = a.date.split('-');
                 return parseInt(ap[0]) === year && parseInt(ap[1]) === mon;
             });
@@ -1216,7 +1414,7 @@
         function exportToExcel() {
             let csv = 'Paciente;Data;Servico;Valor;Status\n';
             
-            appointments.forEach(a => {
+            appointments.filter(a => !a.cancelled).forEach(a => {
                 const p = patients.find(x => x.id === a.patientId);
                 csv += (p ? p.name : '-') + ';' + formatDate(a.date) + ';' + a.type + ';' + parseFloat(a.value || 0).toFixed(2) + ';' + (a.paid ? 'Pago' : 'Pendente') + '\n';
             });
