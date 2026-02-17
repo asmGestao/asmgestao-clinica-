@@ -50,6 +50,7 @@
             max-width: 1200px;
             margin: 20px auto;
             padding: 0 20px;
+            padding-bottom: 100px;
         }
         
         .section {
@@ -76,6 +77,8 @@
         .btn-danger { background: #e76f51; color: white; }
         .btn-whatsapp { background: #25d366; color: white; }
         .btn-warning { background: #f4a261; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
         
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
@@ -187,7 +190,7 @@
             padding: 30px;
             border-radius: 10px;
             width: 90%;
-            max-width: 500px;
+            max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
         }
@@ -237,6 +240,7 @@
         .summary-card.green { background: #52b788; }
         .summary-card.red { background: #e76f51; }
         .summary-card.blue { background: #264653; }
+        .summary-card.orange { background: #f4a261; }
         
         .summary-card h3 { font-size: 32px; margin-bottom: 5px; }
         .summary-card p { font-size: 14px; opacity: 0.9; }
@@ -273,6 +277,7 @@
             margin: 20px 0;
             max-height: 400px;
             overflow-y: auto;
+            border: 1px solid #ddd;
         }
         
         .settings-box {
@@ -290,9 +295,98 @@
             color: white;
             margin-top: 40px;
             font-size: 12px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
         }
         
         .footer p { margin: 5px 0; opacity: 0.8; }
+        
+        .checkbox-custom {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .selected-row {
+            background: #e8f5e9 !important;
+        }
+        
+        .charge-box {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+        
+        .pix-box {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+            margin: 10px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        .evolution-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #2a9d8f;
+            position: relative;
+        }
+        
+        .evolution-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        
+        .report-preview {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .report-header {
+            text-align: center;
+            border-bottom: 2px solid #264653;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .report-section {
+            margin: 20px 0;
+        }
+        
+        .report-section h4 {
+            color: #264653;
+            margin-bottom: 10px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .report-preview { box-shadow: none; border: none; }
+        }
     </style>
 </head>
 <body>
@@ -332,11 +426,13 @@
                     <input type="text" id="configClinic" placeholder="Ex: ASM Fisioterapia">
                 </div>
                 
+                <div class="form-group">
+                    <label>Chave PIX para cobranças</label>
+                    <input type="text" id="configPix" placeholder="Ex: CPF, CNPJ, e-mail, telefone ou chave aleatória">
+                    <small style="color: #666;">Esta chave será enviada nas mensagens de cobrança automáticas</small>
+                </div>
+                
                 <button class="btn btn-primary" onclick="saveConfig()">💾 Salvar Configurações</button>
-            </div>
-            
-            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                <strong>ℹ️ Importante:</strong> Estas informações serão usadas automaticamente nas mensagens do WhatsApp e nos relatórios gerados pelo sistema.
             </div>
         </div>
         
@@ -538,7 +634,7 @@
     
     <!-- MODAL PACIENTE -->
     <div class="modal" id="patientModal">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
                 <h3 id="patientModalTitle">Novo Paciente</h3>
                 <button class="close-btn" onclick="closeModal('patientModal')">&times;</button>
@@ -581,7 +677,7 @@
                 </div>
             </div>
             
-            <!-- ABA FINANCEIRO -->
+            <!-- ABA FINANCEIRO COM COBRANÇA -->
             <div id="tabFinanceiro" class="tab-content">
                 <div class="summary-cards">
                     <div class="summary-card green">
@@ -594,38 +690,56 @@
                     </div>
                 </div>
                 
+                <div class="charge-box" id="chargeBox" style="display: none;">
+                    <h4>📲 Cobrança Selecionada</h4>
+                    <p>Sessões selecionadas: <strong id="selectedCount">0</strong></p>
+                    <p>Total a cobrar: <strong id="selectedTotal">R$ 0,00</strong></p>
+                    <button class="btn btn-whatsapp" onclick="sendChargeWhatsApp()">📱 Enviar Cobrança por WhatsApp</button>
+                </div>
+                
                 <table>
                     <thead>
-                        <tr><th>Data</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Ações</th></tr>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                            <th>Data</th>
+                            <th>Serviço</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
                     </thead>
                     <tbody id="patientFinanceTable"></tbody>
                 </table>
             </div>
             
-            <!-- ABA EVOLUÇÃO -->
+            <!-- ABA EVOLUÇÃO COM EXPORTAÇÃO -->
             <div id="tabEvolucao" class="tab-content">
                 <div class="form-group">
                     <label>Nova Evolução</label>
                     <textarea id="newEvolution" rows="4" placeholder="Descreva a evolução do paciente..."></textarea>
-                    <button class="btn btn-primary" onclick="addEvolution()" style="margin-top: 10px;">Salvar Evolução</button>
+                    <button class="btn btn-primary" onclick="addEvolution()" style="margin-top: 10px;">💾 Salvar Evolução</button>
                 </div>
                 
                 <div id="evolutionsList" style="margin-top: 20px;"></div>
             </div>
             
-            <!-- ABA RELATÓRIO -->
+            <!-- ABA RELATÓRIO MELHORADA -->
             <div id="tabRelatorio" class="tab-content">
                 <div class="form-group">
                     <label>Mês/Ano do Relatório</label>
                     <input type="month" id="reportMonthPatient">
                 </div>
                 
-                <button class="btn btn-primary" onclick="generatePatientReport()">🟢 Gerar Relatório Mensal</button>
+                <button class="btn btn-primary" onclick="generatePatientReport()">📋 Gerar Relatório Mensal</button>
                 
                 <div id="reportContainer" style="display: none; margin-top: 20px;">
-                    <div class="report-box" id="reportContent"></div>
-                    <button class="btn btn-primary" onclick="copyReport()">📋 Copiar</button>
-                    <button class="btn btn-whatsapp" onclick="sendReportWhatsApp()">📱 Enviar WhatsApp</button>
+                    <div class="report-preview" id="reportContent"></div>
+                    
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                        <button class="btn btn-whatsapp" onclick="sendReportWhatsApp()">📱 Enviar WhatsApp</button>
+                        <button class="btn btn-secondary" onclick="copyReport()">📋 Copiar Texto</button>
+                        <button class="btn btn-info" onclick="printReport()">🖨️ Imprimir / PDF</button>
+                    </div>
                 </div>
             </div>
             
@@ -681,11 +795,12 @@
     </div>
 
     <script>
-// CONFIGURAÇÕES GLOBAIS
+        // CONFIGURAÇÕES GLOBAIS
         let config = JSON.parse(localStorage.getItem('asm_config')) || {
             professionalName: '',
             crefito: '',
-            clinicName: 'ASM Fisioterapia'
+            clinicName: 'ASM Fisioterapia',
+            pixKey: ''
         };
         
         // DADOS
@@ -698,6 +813,7 @@
         let currentPatientId = null;
         let currentApptId = null;
         let currentReport = '';
+        let selectedCharges = new Set();
 
         // INICIALIZAÇÃO
         document.addEventListener('DOMContentLoaded', function() {
@@ -717,6 +833,7 @@
             document.getElementById('configName').value = config.professionalName;
             document.getElementById('configCrefito').value = config.crefito;
             document.getElementById('configClinic').value = config.clinicName;
+            document.getElementById('configPix').value = config.pixKey || '';
             
             updateHeader();
         }
@@ -725,6 +842,7 @@
             config.professionalName = document.getElementById('configName').value.trim();
             config.crefito = document.getElementById('configCrefito').value.trim();
             config.clinicName = document.getElementById('configClinic').value.trim() || 'ASM Fisioterapia';
+            config.pixKey = document.getElementById('configPix').value.trim();
             
             if (!config.professionalName || !config.crefito) {
                 alert('Preencha o nome do profissional e o CREFITO!');
@@ -749,7 +867,8 @@
             const name = config.professionalName || 'Profissional';
             const crefito = config.crefito ? 'CREFITO ' + config.crefito : '';
             const clinic = config.clinicName || 'ASM Fisioterapia';
-            return { name, crefito, clinic };
+            const pix = config.pixKey || '';
+            return { name, crefito, clinic, pix };
         }
 
         // NAVEGAÇÃO
@@ -890,6 +1009,7 @@
 
         function openPatientModal(patientId) {
             currentPatientId = patientId;
+            selectedCharges.clear();
             const modal = document.getElementById('patientModal');
             
             // Reset
@@ -978,6 +1098,129 @@
             
             if (tab === 'financeiro') renderPatientFinance();
             if (tab === 'evolucao') renderEvolutions();
+        }
+
+        // FINANCEIRO DO PACIENTE COM COBRANÇA
+        function renderPatientFinance() {
+            const patientAppts = appointments.filter(a => a.patientId === currentPatientId && !a.cancelled);
+            const paid = patientAppts.filter(a => a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
+            const pending = patientAppts.filter(a => !a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
+            
+            document.getElementById('patientPaid').textContent = 'R$ ' + paid.toFixed(2);
+            document.getElementById('patientPending').textContent = 'R$ ' + pending.toFixed(2);
+            
+            const tbody = document.getElementById('patientFinanceTable');
+            tbody.innerHTML = '';
+            
+            const pendingAppts = patientAppts.filter(a => !a.paid).sort((a, b) => new Date(a.date) - new Date(b.date));
+            const paidAppts = patientAppts.filter(a => a.paid).sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sortedAppts = [...pendingAppts, ...paidAppts];
+            
+            sortedAppts.forEach(appt => {
+                const row = document.createElement('tr');
+                if (selectedCharges.has(appt.id)) row.classList.add('selected-row');
+                
+                const isPending = !appt.paid;
+                
+                let html = '<td>';
+                if (isPending) {
+                    html += '<input type="checkbox" class="checkbox-custom" ' + (selectedCharges.has(appt.id) ? 'checked' : '') + ' onchange="toggleChargeSelection(\'' + appt.id + '\', ' + appt.value + ')">';
+                } else {
+                    html += '✓';
+                }
+                html += '</td>';
+                
+                html += '<td>' + formatDate(appt.date) + '</td>';
+                html += '<td>' + appt.type + '</td>';
+                html += '<td>R$ ' + parseFloat(appt.value || 0).toFixed(2) + '</td>';
+                html += '<td>' + (appt.paid ? '<span class="badge badge-success">Pago</span>' : '<span class="badge badge-warning">Pendente</span>') + '</td>';
+                html += '<td><button class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;" onclick="togglePayment(\'' + appt.id + '\')">' + (appt.paid ? 'Desmarcar' : 'Pagar') + '</button></td>';
+                
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+            
+            updateChargeBox();
+        }
+
+        function toggleChargeSelection(apptId, value) {
+            if (selectedCharges.has(apptId)) {
+                selectedCharges.delete(apptId);
+            } else {
+                selectedCharges.add(apptId);
+            }
+            renderPatientFinance();
+        }
+
+        function toggleSelectAll() {
+            const patientAppts = appointments.filter(a => a.patientId === currentPatientId && !a.cancelled && !a.paid);
+            const allSelected = patientAppts.every(a => selectedCharges.has(a.id));
+            
+            if (allSelected) {
+                patientAppts.forEach(a => selectedCharges.delete(a.id));
+            } else {
+                patientAppts.forEach(a => selectedCharges.add(a.id));
+            }
+            
+            document.getElementById('selectAll').checked = !allSelected;
+            renderPatientFinance();
+        }
+
+        function updateChargeBox() {
+            const box = document.getElementById('chargeBox');
+            if (selectedCharges.size === 0) {
+                box.style.display = 'none';
+                return;
+            }
+            
+            box.style.display = 'block';
+            document.getElementById('selectedCount').textContent = selectedCharges.size;
+            
+            let total = 0;
+            selectedCharges.forEach(id => {
+                const appt = appointments.find(a => a.id === id);
+                if (appt) total += parseFloat(appt.value || 0);
+            });
+            
+            document.getElementById('selectedTotal').textContent = 'R$ ' + total.toFixed(2);
+        }
+
+        function sendChargeWhatsApp() {
+            if (selectedCharges.size === 0) return;
+            
+            const patient = patients.find(p => p.id === currentPatientId);
+            const sig = getProfessionalSignature();
+            
+            let total = 0;
+            let sessionsList = [];
+            
+            selectedCharges.forEach(id => {
+                const appt = appointments.find(a => a.id === id);
+                if (appt) {
+                    total += parseFloat(appt.value || 0);
+                    sessionsList.push(formatDate(appt.date) + ' - R$ ' + parseFloat(appt.value || 0).toFixed(2));
+                }
+            });
+            
+            let msg = 'Olá ' + patient.name.split(' ')[0] + ', tudo bem? 😊\n\n';
+            msg += 'Segue a relação das sessões em aberto na ' + sig.clinic + ':\n\n';
+            
+            sessionsList.forEach((session, idx) => {
+                msg += (idx + 1) + '. ' + session + '\n';
+            });
+            
+            msg += '\n💰 *Total a pagar: R$ ' + total.toFixed(2) + '*\n\n';
+            
+            if (sig.pix) {
+                msg += '💳 Para pagamento via PIX, utilize a chave:\n';
+                msg += '*' + sig.pix + '*\n\n';
+                msg += 'Ou envie o comprovante para este número assim que realizar o pagamento.\n\n';
+            }
+            
+            msg += 'Qualquer dúvida estou à disposição!\n';
+            if (sig.name) msg += '\nAtenciosamente,\n' + sig.name;
+            
+            window.open('https://wa.me/55' + patient.phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg), '_blank');
         }
 
         // AGENDAMENTOS
@@ -1099,7 +1342,7 @@
             window.open('https://wa.me/55' + patient.phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg), '_blank');
         }
 
-        // FINANCEIRO
+        // FINANCEIRO GERAL
         function renderFinancialTable() {
             const tbody = document.getElementById('financialTable');
             tbody.innerHTML = '';
@@ -1117,31 +1360,6 @@
                 html += '<td>' + (appt.paid ? '✅ Pago' : '⏳ Pendente') + '</td>';
                 html += '<td><button class="btn btn-primary" onclick="togglePayment(\'' + appt.id + '\')">' + (appt.paid ? 'Desmarcar' : 'Pagar') + '</button></td>';
                 
-                row.innerHTML = html;
-                tbody.appendChild(row);
-            });
-        }
-
-        function renderPatientFinance() {
-            const patientAppts = appointments.filter(a => a.patientId === currentPatientId && !a.cancelled);
-            const paid = patientAppts.filter(a => a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
-            const pending = patientAppts.filter(a => !a.paid).reduce((s, a) => s + parseFloat(a.value || 0), 0);
-            
-            document.getElementById('patientPaid').textContent = 'R$ ' + paid.toFixed(2);
-            document.getElementById('patientPending').textContent = 'R$ ' + pending.toFixed(2);
-            
-            const tbody = document.getElementById('patientFinanceTable');
-            tbody.innerHTML = '';
-            
-            patientAppts.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            patientAppts.forEach(appt => {
-                const row = document.createElement('tr');
-                let html = '<td>' + formatDate(appt.date) + '</td>';
-                html += '<td>' + appt.type + '</td>';
-                html += '<td>R$ ' + parseFloat(appt.value || 0).toFixed(2) + '</td>';
-                html += '<td>' + (appt.paid ? 'Pago' : 'Pendente') + '</td>';
-                html += '<td><button class="btn btn-primary" onclick="togglePayment(\'' + appt.id + '\')">' + (appt.paid ? 'Desmarcar' : 'Pagar') + '</button></td>';
                 row.innerHTML = html;
                 tbody.appendChild(row);
             });
@@ -1168,7 +1386,7 @@
             if (currentPatientId) renderPatientFinance();
         }
 
-        // EVOLUÇÕES
+        // EVOLUÇÕES COM EXPORTAÇÃO
         function renderEvolutions() {
             const list = document.getElementById('evolutionsList');
             list.innerHTML = '';
@@ -1178,8 +1396,17 @@
             
             patientEvos.forEach(evo => {
                 const div = document.createElement('div');
-                div.style.cssText = 'background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid #2a9d8f;';
-                div.innerHTML = '<small style="color: #666;">' + formatDate(evo.date) + ' às ' + evo.time + '</small><p style="margin-top: 5px;">' + evo.text + '</p>';
+                div.className = 'evolution-item';
+                
+                let html = '<small style="color: #666; display: block; margin-bottom: 5px;">📅 ' + formatDate(evo.date) + ' às ' + evo.time + '</small>';
+                html += '<p style="margin: 0; white-space: pre-wrap;">' + evo.text + '</p>';
+                
+                html += '<div class="evolution-actions">';
+                html += '<button class="btn btn-whatsapp" style="padding: 5px 10px; font-size: 12px;" onclick="sendEvolutionWhatsApp(\'' + evo.id + '\')">📱 Enviar WhatsApp</button>';
+                html += '<button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="copyEvolution(\'' + evo.id + '\')">📋 Copiar</button>';
+                html += '</div>';
+                
+                div.innerHTML = html;
                 list.appendChild(div);
             });
         }
@@ -1204,7 +1431,30 @@
             renderEvolutions();
         }
 
-        // RELATÓRIO DO PACIENTE
+        function sendEvolutionWhatsApp(evoId) {
+            const evo = evolutions.find(e => e.id === evoId);
+            const patient = patients.find(p => p.id === currentPatientId);
+            const sig = getProfessionalSignature();
+            
+            let msg = 'Olá ' + patient.name.split(' ')[0] + ', tudo bem? 😊\n\n';
+            msg += 'Segue a evolução da sua sessão do dia ' + formatDate(evo.date) + ':\n\n';
+            msg += evo.text + '\n\n';
+            
+            if (sig.name) {
+                msg += 'Atenciosamente,\n' + sig.name + '\n';
+                if (sig.crefito) msg += sig.crefito + '\n';
+            }
+            msg += sig.clinic;
+            
+            window.open('https://wa.me/55' + patient.phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg), '_blank');
+        }
+
+        function copyEvolution(evoId) {
+            const evo = evolutions.find(e => e.id === evoId);
+            navigator.clipboard.writeText(evo.text).then(() => alert('Evolução copiada!'));
+        }
+
+        // RELATÓRIO DO PACIENTE MELHORADO
         function generatePatientReport() {
             const month = document.getElementById('reportMonthPatient').value;
             if (!month) {
@@ -1233,51 +1483,118 @@
             
             const monthName = new Date(year, mon - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
             
-            let report = 'RELATÓRIO MENSAL - ' + sig.clinic.toUpperCase() + '\n';
-            if (sig.name) report += sig.name + '\n';
-            if (sig.crefito) report += sig.crefito + '\n';
-            report += '================================\n\n';
-            report += 'Paciente: ' + patient.name + '\n';
-            report += 'Período: ' + monthName + '\n\n';
-            report += '📋 RESUMO\n';
-            report += 'Sessões realizadas: ' + monthAppts.length + '\n\n';
+            // Criar relatório formatado em HTML
+            let reportHTML = '<div class="report-header">';
+            reportHTML += '<h2>' + sig.clinic + '</h2>';
+            if (sig.name) reportHTML += '<p><strong>' + sig.name + '</strong></p>';
+            if (sig.crefito) reportHTML += '<p>' + sig.crefito + '</p>';
+            reportHTML += '</div>';
             
+            reportHTML += '<div class="report-section">';
+            reportHTML += '<h4>📋 DADOS DO PACIENTE</h4>';
+            reportHTML += '<p><strong>Nome:</strong> ' + patient.name + '</p>';
+            reportHTML += '<p><strong>Período:</strong> ' + monthName + '</p>';
+            reportHTML += '</div>';
+            
+            reportHTML += '<div class="report-section">';
+            reportHTML += '<h4>📅 SESSÕES REALIZADAS (' + monthAppts.length + ')</h4>';
             if (monthAppts.length > 0) {
-                report += 'Datas das sessões:\n';
+                reportHTML += '<ul>';
                 monthAppts.forEach(a => {
-                    report += '• ' + formatDate(a.date) + ' - ' + a.time + '\n';
+                    reportHTML += '<li>' + formatDate(a.date) + ' às ' + a.time + ' - ' + a.type + '</li>';
                 });
-                report += '\n';
+                reportHTML += '</ul>';
+            } else {
+                reportHTML += '<p>Nenhuma sessão registrada neste período.</p>';
             }
+            reportHTML += '</div>';
             
-            report += '📊 EVOLUÇÃO CLÍNICA\n\n';
+            reportHTML += '<div class="report-section">';
+            reportHTML += '<h4>📊 EVOLUÇÃO CLÍNICA</h4>';
             
             if (monthEvos.length === 0) {
-                report += 'Nenhuma evolução registrada neste período.\n';
+                reportHTML += '<p>Nenhuma evolução registrada neste período.</p>';
             } else {
                 monthEvos.forEach((evo, i) => {
-                    report += 'Sessão ' + (i + 1) + ' - ' + formatDate(evo.date) + '\n';
-                    report += evo.text + '\n';
-                    report += '--------------------------------\n\n';
+                    reportHTML += '<div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">';
+                    reportHTML += '<strong>Sessão ' + (i + 1) + ' - ' + formatDate(evo.date) + '</strong>';
+                    reportHTML += '<p style="margin-top: 5px; white-space: pre-wrap;">' + evo.text + '</p>';
+                    reportHTML += '</div>';
+                });
+            }
+            reportHTML += '</div>';
+            
+            reportHTML += '<div class="report-section" style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">';
+            reportHTML += '<p>_______________________________</p>';
+            reportHTML += '<p>' + (sig.name || 'Assinatura do Profissional') + '</p>';
+            if (sig.crefito) reportHTML += '<p>' + sig.crefito + '</p>';
+            reportHTML += '</div>';
+            
+            // Versão texto para WhatsApp
+            let reportText = '*' + sig.clinic + '*\n';
+            if (sig.name) reportText += sig.name + '\n';
+            if (sig.crefito) reportText += sig.crefito + '\n';
+            reportText += '═══════════════════\n\n';
+            reportText += '*RELATÓRIO MENSAL*\n';
+            reportText += 'Paciente: ' + patient.name + '\n';
+            reportText += 'Período: ' + monthName + '\n\n';
+            reportText += '*SESSÕES:* ' + monthAppts.length + '\n';
+            monthAppts.forEach(a => {
+                reportText += '• ' + formatDate(a.date) + '\n';
+            });
+            reportText += '\n*EVOLUÇÃO:*\n';
+            if (monthEvos.length === 0) {
+                reportText += 'Nenhuma evolução registrada.\n';
+            } else {
+                monthEvos.forEach((evo, i) => {
+                    reportText += '\n_Sessão ' + (i + 1) + ' - ' + formatDate(evo.date) + '_\n';
+                    reportText += evo.text + '\n';
                 });
             }
             
-            report += '\n' + sig.clinic;
-            if (sig.name) report += '\n' + sig.name;
-            if (sig.crefito) report += '\n' + sig.crefito;
-            
-            currentReport = report;
-            document.getElementById('reportContent').textContent = report;
+            currentReport = reportText;
+            document.getElementById('reportContent').innerHTML = reportHTML;
             document.getElementById('reportContainer').style.display = 'block';
         }
 
         function copyReport() {
-            navigator.clipboard.writeText(currentReport).then(() => alert('Copiado!'));
+            navigator.clipboard.writeText(currentReport).then(() => alert('Relatório copiado!'));
         }
 
         function sendReportWhatsApp() {
             const patient = patients.find(p => p.id === currentPatientId);
             window.open('https://wa.me/55' + patient.phone.replace(/\D/g, '') + '?text=' + encodeURIComponent(currentReport), '_blank');
+        }
+
+        function printReport() {
+            const printWindow = window.open('', '_blank');
+            const reportContent = document.getElementById('reportContent').innerHTML;
+            
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Relatório - ASM Gestão Clínica</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+                        .report-header { text-align: center; border-bottom: 2px solid #264653; padding-bottom: 20px; margin-bottom: 30px; }
+                        .report-section { margin: 20px 0; }
+                        h2 { color: #264653; }
+                        h4 { color: #2a9d8f; margin-bottom: 10px; }
+                        ul { padding-left: 20px; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    ${reportContent}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
         }
 
         // FLUXO DE CAIXA
