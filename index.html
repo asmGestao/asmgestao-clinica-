@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ASM Gestão Clínica</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:Arial,sans-serif;background:#f0f2f5}
@@ -15,7 +17,6 @@ body{font-family:Arial,sans-serif;background:#f0f2f5}
 .login-box input{width:100%;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:16px}
 .login-btn{width:100%;padding:14px;background:#2a9d8f;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer}
 .login-error{color:#e76f51;margin-top:15px;display:none}
-.admin-badge{display:inline-block;background:#f4a261;color:white;padding:3px 10px;border-radius:12px;font-size:12px;margin-left:10px}
 .header{background:#264653;color:white;padding:15px;text-align:center}
 .user-bar{background:#1a3a47;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center}
 .user-bar button{background:rgba(255,255,255,0.2);border:none;color:white;padding:5px 15px;border-radius:5px;cursor:pointer}
@@ -60,33 +61,59 @@ th{background:#f8f9fa}
 .tab-content.active{display:block}
 .settings-box{background:#e8f4f8;padding:20px;border-radius:8px;margin-bottom:20px;border-left:4px solid #264653}
 .footer{text-align:center;padding:20px;background:#264653;color:white;margin-top:40px;font-size:12px}
-.user-card{background:#f8f9fa;padding:15px;margin-bottom:10px;border-radius:8px;border-left:4px solid #2a9d8f;display:flex;justify-content:space-between;align-items:center}
-.user-card.blocked{border-left-color:#e76f51;opacity:0.7}
 .session-checkbox{margin-right:10px;transform:scale(1.2)}
 .session-row{cursor:pointer}
 .session-row:hover{background:#f0f8ff}
 .session-row.selected{background:#e0f2f1}
 .report-box{background:#f8f9fa;padding:20px;border-radius:8px;white-space:pre-wrap;font-family:monospace;margin:20px 0;max-height:400px;overflow-y:auto}
+.activation-container{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,#264653 0%,#2a9d8f 100%)}
+.activation-box{background:white;padding:40px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.2);width:90%;max-width:400px;text-align:center}
+.activation-box h2{color:#264653;margin-bottom:15px}
+.activation-box p{color:#666;margin-bottom:25px}
+.code-input{width:100%;padding:15px;font-size:24px;text-align:center;letter-spacing:5px;border:2px solid #ddd;border-radius:8px;margin-bottom:20px;text-transform:uppercase}
+.activation-error{color:#e76f51;margin-top:10px;display:none}
+.activation-success{color:#52b788;margin-top:10px;display:none}
+.loading{display:inline-block;width:20px;height:20px;border:3px solid #f3f3f3;border-top:3px solid #264653;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+<!-- TELA DE LOGIN -->
 <div id="loginScreen" class="login-container">
 <div class="login-box">
 <h1>🏥 ASM Gestão Clínica</h1>
 <h2>Login do Profissional</h2>
 <div class="form-group">
 <label>Usuário</label>
-<input type="text" id="loginUser" placeholder="Digite seu usuário">
+<input type="text" id="loginUser" value="ASM" readonly style="background:#f0f0f0">
 </div>
 <div class="form-group">
 <label>Senha</label>
-<input type="password" id="loginPass" placeholder="Digite sua senha">
+<input type="password" id="loginPass" placeholder="Digite a senha">
 </div>
 <button class="login-btn" onclick="doLogin()">Entrar</button>
-<div id="loginError" class="login-error">Usuário ou senha incorretos!</div>
+<div id="loginError" class="login-error">Senha incorreta!</div>
+<p style="margin-top:15px;font-size:12px;color:#999">Senha padrão: asm123</p>
 </div>
 </div>
 
+<!-- TELA DE ATIVAÇÃO -->
+<div id="activationScreen" class="activation-container">
+<div class="activation-box">
+<h2>🔐 Ativação do Sistema</h2>
+<p>Digite o código de ativação fornecido pela administração</p>
+<input type="text" class="code-input" id="activationCode" placeholder="XXXX-XXXX" maxlength="9">
+<button class="login-btn" id="activateBtn" onclick="activateCode()">Ativar Sistema</button>
+<div class="activation-error" id="activationError">Código inválido ou já utilizado!</div>
+<div class="activation-success" id="activationSuccess">Sistema ativado com sucesso!</div>
+<div id="activationLoading" style="display:none;margin-top:15px">
+<div class="loading"></div>
+<p style="margin-top:10px;color:#666">Verificando...</p>
+</div>
+</div>
+</div>
+
+<!-- SISTEMA PRINCIPAL -->
 <div id="mainSystem" style="display:none">
 <div class="header">
 <h1>🏥 ASM Gestão Clínica</h1>
@@ -94,7 +121,7 @@ th{background:#f8f9fa}
 </div>
 
 <div class="user-bar">
-<div>👤 <span id="currentUserName"></span><span id="adminBadge" class="admin-badge" style="display:none">ADMIN</span></div>
+<div>👤 <span id="currentUserName">Dra. Andresa Augusto</span></div>
 <div><button onclick="logout()">🚪 Sair</button></div>
 </div>
 
@@ -105,27 +132,9 @@ th{background:#f8f9fa}
 <button onclick="showSection('fluxo')">📊 Fluxo de Caixa</button>
 <button onclick="showSection('relatorios')">📈 Relatórios</button>
 <button onclick="showSection('configuracoes')">⚙️ Configurações</button>
-<button id="btnUsuarios" onclick="showSection('usuarios')" style="display:none">👤 Usuários</button>
 </div>
 
 <div class="container">
-<div id="usuarios" class="section">
-<h2>👤 Gerenciamento de Usuários</h2>
-<div class="settings-box">
-<h3>Novo Usuário</h3>
-<div class="form-group"><label>Nome do Profissional *</label><input type="text" id="newUserName" placeholder="Ex: Dra. Maria Silva"></div>
-<div class="form-group"><label>CREFITO *</label><input type="text" id="newUserCrefito" placeholder="Ex: 123456-F"></div>
-<div class="form-group"><label>Empresa (opcional)</label><input type="text" id="newUserClinic" placeholder="Ex: ASM Fisioterapia"></div>
-<div class="form-group"><label>Chave Pix *</label><input type="text" id="newUserPix" placeholder="Ex: CPF, CNPJ, e-mail ou telefone"></div>
-<div class="form-group"><label>Usuário (login) *</label><input type="text" id="newUserLogin" placeholder="Ex: maria.silva"></div>
-<div class="form-group"><label>Senha *</label><input type="password" id="newUserPass" placeholder="Mínimo 6 caracteres"></div>
-<div class="form-group"><label>Confirmar Senha *</label><input type="password" id="newUserPass2" placeholder="Digite a senha novamente"></div>
-<button class="btn btn-primary" onclick="createUser()">➕ Criar Usuário</button>
-</div>
-<h3>Usuários Cadastrados</h3>
-<div id="usersList"></div>
-</div>
-
 <div id="configuracoes" class="section">
 <h2>⚙️ Configurações</h2>
 <div class="settings-box">
@@ -303,470 +312,562 @@ th{background:#f8f9fa}
 </div>
 
 <script>
-let users=JSON.parse(localStorage.getItem('asm_users'))||{'admin':{name:'Administrador',password:'admin123',isAdmin:true,isBlocked:false,createdAt:new Date().toISOString(),crefito:'',clinic:'',pix:''}};
-let currentUser=null;
-let selectedSessions=new Set();
+// ============================================
+// CONFIGURAÇÃO DO FIREBASE
+// ============================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDAP8Krf1QYRUf2VmgeGRXL6eoceVcDnp4",
+  authDomain: "asm-gestao-clinica.firebaseapp.com",
+  databaseURL: "https://asm-gestao-clinica-default-rtdb.firebaseio.com",
+  projectId: "asm-gestao-clinica",
+  storageBucket: "asm-gestao-clinica.firebasestorage.app",
+  messagingSenderId: "846179775289",
+  appId: "1:846179775289:web:b914c4e024b1fb13a66ee8"
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// ============================================
+// LOGIN E ATIVAÇÃO
+// ============================================
+const FIXED_USER = "ASM";
+const FIXED_PASS = "asm123";
+
+const VALID_CODES = [
+  "ASM1-0001", "ASM1-0002", "ASM1-0003", "ASM1-0004", "ASM1-0005",
+  "ASM1-0006", "ASM1-0007", "ASM1-0008", "ASM1-0009", "ASM1-0010",
+  "ASM1-0011", "ASM1-0012", "ASM1-0013", "ASM1-0014", "ASM1-0015",
+  "ASM1-0016", "ASM1-0017", "ASM1-0018", "ASM1-0019", "ASM1-0020",
+  "ASM1-0021", "ASM1-0022", "ASM1-0023", "ASM1-0024", "ASM1-0025",
+  "ASM2-0026", "ASM2-0027", "ASM2-0028", "ASM2-0029", "ASM2-0030",
+  "ASM2-0031", "ASM2-0032", "ASM2-0033", "ASM2-0034", "ASM2-0035",
+  "ASM2-0036", "ASM2-0037", "ASM2-0038", "ASM2-0039", "ASM2-0040",
+  "ASM2-0041", "ASM2-0042", "ASM2-0043", "ASM2-0044", "ASM2-0045",
+  "ASM2-0046", "ASM2-0047", "ASM2-0048", "ASM2-0049", "ASM2-0050",
+  "ASM3-0051", "ASM3-0052", "ASM3-0053", "ASM3-0054", "ASM3-0055",
+  "ASM3-0056", "ASM3-0057", "ASM3-0058", "ASM3-0059", "ASM3-0060",
+  "ASM3-0061", "ASM3-0062", "ASM3-0063", "ASM3-0064", "ASM3-0065",
+  "ASM3-0066", "ASM3-0067", "ASM3-0068", "ASM3-0069", "ASM3-0070",
+  "ASM3-0071", "ASM3-0072", "ASM3-0073", "ASM3-0074", "ASM3-0075",
+  "ASM4-0076", "ASM4-0077", "ASM4-0078", "ASM4-0079", "ASM4-0080",
+  "ASM4-0081", "ASM4-0082", "ASM4-0083", "ASM4-0084", "ASM4-0085",
+  "ASM4-0086", "ASM4-0087", "ASM4-0088", "ASM4-0089", "ASM4-0090",
+  "ASM4-0091", "ASM4-0092", "ASM4-0093", "ASM4-0094", "ASM4-0095",
+  "ASM4-0096", "ASM4-0097", "ASM4-0098", "ASM4-0099", "ASM4-0100",
+  "ASM5-0101", "ASM5-0102", "ASM5-0103", "ASM5-0104", "ASM5-0105",
+  "ASM5-0106", "ASM5-0107", "ASM5-0108", "ASM5-0109", "ASM5-0110",
+  "ASM5-0111", "ASM5-0112", "ASM5-0113", "ASM5-0114", "ASM5-0115",
+  "ASM5-0116", "ASM5-0117", "ASM5-0118", "ASM5-0119", "ASM5-0120",
+  "ASM5-0121", "ASM5-0122", "ASM5-0123", "ASM5-0124", "ASM5-0125",
+  "ASM6-0126", "ASM6-0127", "ASM6-0128", "ASM6-0129", "ASM6-0130",
+  "ASM6-0131", "ASM6-0132", "ASM6-0133", "ASM6-0134", "ASM6-0135",
+  "ASM6-0136", "ASM6-0137", "ASM6-0138", "ASM6-0139", "ASM6-0140",
+  "ASM6-0141", "ASM6-0142", "ASM6-0143", "ASM6-0144", "ASM6-0145",
+  "ASM6-0146", "ASM6-0147", "ASM6-0148", "ASM6-0149", "ASM6-0150",
+  "ASM7-0151", "ASM7-0152", "ASM7-0153", "ASM7-0154", "ASM7-0155",
+  "ASM7-0156", "ASM7-0157", "ASM7-0158", "ASM7-0159", "ASM7-0160",
+  "ASM7-0161", "ASM7-0162", "ASM7-0163", "ASM7-0164", "ASM7-0165",
+  "ASM7-0166", "ASM7-0167", "ASM7-0168", "ASM7-0169", "ASM7-0170",
+  "ASM7-0171", "ASM7-0172", "ASM7-0173", "ASM7-0174", "ASM7-0175",
+  "ASM8-0176", "ASM8-0177", "ASM8-0178", "ASM8-0179", "ASM8-0180",
+  "ASM8-0181", "ASM8-0182", "ASM8-0183", "ASM8-0184", "ASM8-0185",
+  "ASM8-0186", "ASM8-0187", "ASM8-0188", "ASM8-0189", "ASM8-0190",
+  "ASM8-0191", "ASM8-0192", "ASM8-0193", "ASM8-0194", "ASM8-0195",
+  "ASM8-0196", "ASM8-0197", "ASM8-0198", "ASM8-0199", "ASM8-0200",
+  "ASM9-0201", "ASM9-0202", "ASM9-0203", "ASM9-0204", "ASM9-0205",
+  "ASM9-0206", "ASM9-0207", "ASM9-0208", "ASM9-0209", "ASM9-0210",
+  "ASM9-0211", "ASM9-0212", "ASM9-0213", "ASM9-0214", "ASM9-0215",
+  "ASM9-0216", "ASM9-0217", "ASM9-0218", "ASM9-0219", "ASM9-0220",
+  "ASM9-0221", "ASM9-0222", "ASM9-0223", "ASM9-0224", "ASM9-0225",
+  "AS10-0226", "AS10-0227", "AS10-0228", "AS10-0229", "AS10-0230",
+  "AS10-0231", "AS10-0232", "AS10-0233", "AS10-0234", "AS10-0235",
+  "AS10-0236", "AS10-0237", "AS10-0238", "AS10-0239", "AS10-0240",
+  "AS10-0241", "AS10-0242", "AS10-0243", "AS10-0244", "AS10-0245",
+  "AS10-0246", "AS10-0247", "AS10-0248", "AS10-0249", "AS10-0250",
+  "AS11-0251", "AS11-0252", "AS11-0253", "AS11-0254", "AS11-0255",
+  "AS11-0256", "AS11-0257", "AS11-0258", "AS11-0259", "AS11-0260",
+  "AS11-0261", "AS11-0262", "AS11-0263", "AS11-0264", "AS11-0265",
+  "AS11-0266", "AS11-0267", "AS11-0268", "AS11-0269", "AS11-0270",
+  "AS11-0271", "AS11-0272", "AS11-0273", "AS11-0274", "AS11-0275",
+  "AS12-0276", "AS12-0277", "AS12-0278", "AS12-0279", "AS12-0280",
+  "AS12-0281", "AS12-0282", "AS12-0283", "AS12-0284", "AS12-0285",
+  "AS12-0286", "AS12-0287", "AS12-0288", "AS12-0289", "AS12-0290",
+  "AS12-0291", "AS12-0292", "AS12-0293", "AS12-0294", "AS12-0295",
+  "AS12-0296", "AS12-0297", "AS12-0298", "AS12-0299", "AS12-0300"
+];
+
+// ============================================
+// VARIÁVEIS DO SISTEMA
+// ============================================
 let config={},patients=[],appointments=[],evolutions=[],expenses=[];
 let currentDate=new Date(),currentPatientId=null,currentApptId=null,currentReport='';
 
-function saveUsers(){localStorage.setItem('asm_users',JSON.stringify(users))}
+// ============================================
+// FUNÇÕES DE LOGIN E ATIVAÇÃO
+// ============================================
+
+window.onload = function() {
+  const isActivated = localStorage.getItem('asm_activated');
+  const isLoggedIn = localStorage.getItem('asm_logged_in');
+  
+  if (isLoggedIn && isActivated) {
+    showMainSystem();
+  } else if (isLoggedIn && !isActivated) {
+    showActivation();
+  }
+};
 
 function doLogin(){
-const username=document.getElementById('loginUser').value.trim().toLowerCase();
-const password=document.getElementById('loginPass').value;
-if(!username||!password){showLoginError('Preencha usuário e senha!');return}
-const user=users[username];
-if(!user||user.password!==password){showLoginError('Usuário ou senha incorretos!');return}
-if(user.isBlocked){showLoginError('Usuário bloqueado.');return}
-currentUser=username;
-localStorage.setItem('asm_current_user',username);
-document.getElementById('loginScreen').style.display='none';
-document.getElementById('mainSystem').style.display='block';
-document.getElementById('currentUserName').textContent=user.name;
-if(user.isAdmin){
-document.getElementById('adminBadge').style.display='inline-block';
-document.getElementById('btnUsuarios').style.display='inline-block';
-renderUsersList()
-}
-loadUserData();
-initializeApp()
+  const user = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  
+  if (user !== FIXED_USER || password !== FIXED_PASS) {
+    showLoginError('Senha incorreta!');
+    return;
+  }
+  
+  localStorage.setItem('asm_logged_in', 'true');
+  showActivation();
 }
 
 function showLoginError(msg){
-const errorDiv=document.getElementById('loginError');
-errorDiv.textContent=msg;
-errorDiv.style.display='block';
-setTimeout(()=>errorDiv.style.display='none',3000)
+  const errorDiv = document.getElementById('loginError');
+  errorDiv.textContent = msg;
+  errorDiv.style.display = 'block';
+  setTimeout(() => errorDiv.style.display = 'none', 3000);
 }
 
-function logout(){currentUser=null;localStorage.removeItem('asm_current_user');location.reload()}
-
-function checkSession(){
-const savedUser=localStorage.getItem('asm_current_user');
-if(savedUser&&users[savedUser]&&!users[savedUser].isBlocked){
-document.getElementById('loginUser').value=savedUser;
-document.getElementById('loginPass').focus()
-}
+function showActivation() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('activationScreen').style.display = 'flex';
+  document.getElementById('mainSystem').style.display = 'none';
 }
 
-function createUser(){
-const name=document.getElementById('newUserName').value.trim();
-const crefito=document.getElementById('newUserCrefito').value.trim();
-const clinic=document.getElementById('newUserClinic').value.trim();
-const pix=document.getElementById('newUserPix').value.trim();
-const login=document.getElementById('newUserLogin').value.trim().toLowerCase();
-const pass=document.getElementById('newUserPass').value;
-const pass2=document.getElementById('newUserPass2').value;
-if(!name||!crefito||!pix||!login||!pass){alert('Preencha todos os campos obrigatórios!');return}
-if(pass.length<6){alert('Senha mínima de 6 caracteres!');return}
-if(pass!==pass2){alert('Senhas não conferem!');return}
-if(users[login]){alert('Usuário já existe!');return}
-users[login]={name,password:pass,isAdmin:false,isBlocked:false,createdAt:new Date().toISOString(),crefito,clinic:clinic||'ASM Fisioterapia',pix};
-saveUsers();
-document.getElementById('newUserName').value='';
-document.getElementById('newUserCrefito').value='';
-document.getElementById('newUserClinic').value='';
-document.getElementById('newUserPix').value='';
-document.getElementById('newUserLogin').value='';
-document.getElementById('newUserPass').value='';
-document.getElementById('newUserPass2').value='';
-renderUsersList();
-alert('Usuário criado!\nLogin: '+login+'\nSenha: '+pass)
+function showMainSystem() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('activationScreen').style.display = 'none';
+  document.getElementById('mainSystem').style.display = 'block';
+  loadUserData();
+  initializeApp();
 }
 
-function renderUsersList(){
-const container=document.getElementById('usersList');
-container.innerHTML='';
-for(let login in users){
-const user=users[login];
-const div=document.createElement('div');
-div.className='user-card'+(user.isBlocked?' blocked':'');
-let html='<div class="user-info"><h4>'+user.name+' '+(user.isAdmin?'<span class="admin-badge">ADMIN</span>':'')+'</h4>';
-html+='<small>Login: '+login+' | CREFITO: '+(user.crefito||'-')+' | Pix: '+(user.pix||'-')+'</small></div>';
-html+='<div>';
-if(login!=='admin'){
-html+='<button class="btn btn-warning" onclick="toggleBlockUser(\''+login+'\')">'+(user.isBlocked?'Desbloquear':'Bloquear')+'</button> ';
-html+='<button class="btn btn-danger" onclick="deleteUser(\''+login+'\')">Excluir</button>'
-}else{html+='<small>(Não alterável)</small>'}
-html+='</div>';
-div.innerHTML=html;
-container.appendChild(div)
-}
+async function activateCode() {
+  const code = document.getElementById('activationCode').value.toUpperCase().trim();
+  const errorMsg = document.getElementById('activationError');
+  const successMsg = document.getElementById('activationSuccess');
+  const loading = document.getElementById('activationLoading');
+  const btn = document.getElementById('activateBtn');
+  
+  errorMsg.style.display = 'none';
+  successMsg.style.display = 'none';
+  
+  if (!code || code.length < 8) {
+    errorMsg.textContent = 'Digite um código válido!';
+    errorMsg.style.display = 'block';
+    return;
+  }
+  
+  loading.style.display = 'block';
+  btn.disabled = true;
+  
+  try {
+    const snapshot = await database.ref('used_codes/' + code).once('value');
+    
+    if (snapshot.exists()) {
+      errorMsg.textContent = 'Este código já foi utilizado!';
+      errorMsg.style.display = 'block';
+    } else if (VALID_CODES.includes(code)) {
+      await database.ref('used_codes/' + code).set({
+        used_at: new Date().toISOString(),
+        used_by: 'ASM'
+      });
+      
+      localStorage.setItem('asm_activated', 'true');
+      localStorage.setItem('asm_activation_code', code);
+      
+      successMsg.style.display = 'block';
+      
+      setTimeout(() => {
+        showMainSystem();
+      }, 1500);
+    } else {
+      errorMsg.textContent = 'Código inválido!';
+      errorMsg.style.display = 'block';
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    errorMsg.textContent = 'Erro de conexão. Tente novamente.';
+    errorMsg.style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+    btn.disabled = false;
+  }
 }
 
-function toggleBlockUser(login){
-if(!confirm('Tem certeza?'))return;
-users[login].isBlocked=!users[login].isBlocked;
-saveUsers();
-renderUsersList()
+function logout(){
+  localStorage.removeItem('asm_logged_in');
+  localStorage.removeItem('asm_activated');
+  localStorage.removeItem('asm_activation_code');
+  location.reload();
 }
 
-function deleteUser(login){
-if(!confirm('ATENÇÃO: Excluirá TODOS os dados deste usuário!\nTem certeza?'))return;
-localStorage.removeItem('asm_patients_'+login);
-localStorage.removeItem('asm_appointments_'+login);
-localStorage.removeItem('asm_evolutions_'+login);
-localStorage.removeItem('asm_expenses_'+login);
-localStorage.removeItem('asm_config_'+login);
-delete users[login];
-saveUsers();
-renderUsersList()
-}
+// ============================================
+// FUNÇÕES DO SISTEMA
+// ============================================
 
 function loadUserData(){
-const prefix='asm_'+currentUser+'_';
-const userData=users[currentUser];
-config=JSON.parse(localStorage.getItem(prefix+'config'))||{professionalName:userData.name,crefito:userData.crefito||'',clinicName:userData.clinic||'ASM Fisioterapia',pix:userData.pix||''};
-patients=JSON.parse(localStorage.getItem(prefix+'patients'))||[];
-appointments=JSON.parse(localStorage.getItem(prefix+'appointments'))||[];
-evolutions=JSON.parse(localStorage.getItem(prefix+'evolutions'))||[];
-expenses=JSON.parse(localStorage.getItem(prefix+'expenses'))||[]
+  config=JSON.parse(localStorage.getItem('asm_config'))||{professionalName:'Dra. Andresa Augusto',crefito:'409314-F',clinicName:'ASM Fisioterapia',pix:''};
+  patients=JSON.parse(localStorage.getItem('asm_patients'))||[];
+  appointments=JSON.parse(localStorage.getItem('asm_appointments'))||[];
+  evolutions=JSON.parse(localStorage.getItem('asm_evolutions'))||[];
+  expenses=JSON.parse(localStorage.getItem('asm_expenses'))||[]
 }
 
 function saveUserData(){
-const prefix='asm_'+currentUser+'_';
-localStorage.setItem(prefix+'config',JSON.stringify(config));
-localStorage.setItem(prefix+'patients',JSON.stringify(patients));
-localStorage.setItem(prefix+'appointments',JSON.stringify(appointments));
-localStorage.setItem(prefix+'evolutions',JSON.stringify(evolutions));
-localStorage.setItem(prefix+'expenses',JSON.stringify(expenses))
+  localStorage.setItem('asm_config',JSON.stringify(config));
+  localStorage.setItem('asm_patients',JSON.stringify(patients));
+  localStorage.setItem('asm_appointments',JSON.stringify(appointments));
+  localStorage.setItem('asm_evolutions',JSON.stringify(evolutions));
+  localStorage.setItem('asm_expenses',JSON.stringify(expenses))
 }
 
 function initializeApp(){
-loadConfig();
-renderCalendar();
-renderPatients();
-updateFinancialSummary();
-loadPatientSelect();
-const today=new Date().toISOString().slice(0,7);
-document.getElementById('cashFlowMonth').value=today;
-document.getElementById('reportMonth').value=today
+  loadConfig();
+  renderCalendar();
+  renderPatients();
+  updateFinancialSummary();
+  loadPatientSelect();
+  const today=new Date().toISOString().slice(0,7);
+  document.getElementById('cashFlowMonth').value=today;
+  document.getElementById('reportMonth').value=today
 }
 
 function loadConfig(){
-document.getElementById('configName').value=config.professionalName;
-document.getElementById('configCrefito').value=config.crefito;
-document.getElementById('configClinic').value=config.clinicName;
-document.getElementById('configPix').value=config.pix||'';
-updateHeader()
+  document.getElementById('configName').value=config.professionalName;
+  document.getElementById('configCrefito').value=config.crefito;
+  document.getElementById('configClinic').value=config.clinicName;
+  document.getElementById('configPix').value=config.pix||'';
+  updateHeader()
 }
 
 function saveConfig(){
-config.professionalName=document.getElementById('configName').value.trim();
-config.crefito=document.getElementById('configCrefito').value.trim();
-config.clinicName=document.getElementById('configClinic').value.trim()||'ASM Fisioterapia';
-config.pix=document.getElementById('configPix').value.trim();
-if(!config.professionalName||!config.crefito){alert('Preencha nome e CREFITO!');return}
-saveUserData();
-updateHeader();
-alert('Configurações salvas!')
+  config.professionalName=document.getElementById('configName').value.trim();
+  config.crefito=document.getElementById('configCrefito').value.trim();
+  config.clinicName=document.getElementById('configClinic').value.trim()||'ASM Fisioterapia';
+  config.pix=document.getElementById('configPix').value.trim();
+  if(!config.professionalName||!config.crefito){alert('Preencha nome e CREFITO!');return}
+  saveUserData();
+  updateHeader();
+  alert('Configurações salvas!')
 }
 
 function updateHeader(){
-const subtitle=document.getElementById('headerSubtitle');
-subtitle.textContent=config.professionalName?config.professionalName+' - CREFITO '+config.crefito:'Configure seus dados'
+  const subtitle=document.getElementById('headerSubtitle');
+  subtitle.textContent=config.professionalName?config.professionalName+' - CREFITO '+config.crefito:'Configure seus dados'
 }
 
 function getProfessionalSignature(){
-return{name:config.professionalName||'Profissional',crefito:config.crefito?'CREFITO '+config.crefito:'',clinic:config.clinicName||'ASM Fisioterapia',pix:config.pix||''}
+  return{name:config.professionalName||'Profissional',crefito:config.crefito?'CREFITO '+config.crefito:'',clinic:config.clinicName||'ASM Fisioterapia',pix:config.pix||''}
 }
 
 function showSection(section){
-document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-document.getElementById(section).classList.add('active');
-event.target.classList.add('active');
-if(section==='financeiro')renderFinancialTable();
-if(section==='fluxo')renderCashFlow();
-if(section==='relatorios')renderReports();
-if(section==='usuarios')renderUsersList()
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(section).classList.add('active');
+  event.target.classList.add('active');
+  if(section==='financeiro')renderFinancialTable();
+  if(section==='fluxo')renderCashFlow();
+  if(section==='relatorios')renderReports()
 }
 
 function renderCalendar(){
-const year=currentDate.getFullYear(),month=currentDate.getMonth();
-document.getElementById('currentMonth').textContent=new Date(year,month).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-const firstDay=new Date(year,month,1).getDay(),daysInMonth=new Date(year,month+1,0).getDate();
-const calendar=document.getElementById('calendar');
-calendar.innerHTML='';
-const days=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-days.forEach(day=>{const div=document.createElement('div');div.className='calendar-header';div.textContent=day;calendar.appendChild(div)});
-for(let i=0;i<firstDay;i++)calendar.appendChild(document.createElement('div'));
-const today=new Date();
-for(let day=1;day<=daysInMonth;day++){
-const div=document.createElement('div');
-div.className='calendar-day';
-div.innerHTML='<strong>'+day+'</strong>';
-if(year===today.getFullYear()&&month===today.getMonth()&&day===today.getDate()){div.style.background='#2a9d8f';div.style.color='white'}
-const dayAppointments=appointments.filter(a=>{const parts=a.date.split('-');return parseInt(parts[0])===year&&(parseInt(parts[1])-1)===month&&parseInt(parts[2])===day});
-dayAppointments.forEach(appt=>{
-const patient=patients.find(p=>p.id===appt.patientId);
-const apptDiv=document.createElement('div');
-apptDiv.className='appointment'+(appt.cancelled?' cancelled':'');
-apptDiv.innerHTML='<span>'+appt.time+' '+(patient?patient.name.split(' ')[0]:'')+'</span>';
-const actions=document.createElement('div');
-actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\''+appt.id+'\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\''+appt.id+'\')">'+(appt.cancelled?'↩':'✕')+'</button>';
-apptDiv.appendChild(actions);
-div.appendChild(apptDiv)
-});
-div.onclick=()=>openAppointmentModal(year,month,day);
-calendar.appendChild(div)
-}
+  const year=currentDate.getFullYear(),month=currentDate.getMonth();
+  document.getElementById('currentMonth').textContent=new Date(year,month).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const firstDay=new Date(year,month,1).getDay(),daysInMonth=new Date(year,month+1,0).getDate();
+  const calendar=document.getElementById('calendar');
+  calendar.innerHTML='';
+  const days=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  days.forEach(day=>{const div=document.createElement('div');div.className='calendar-header';div.textContent=day;calendar.appendChild(div)});
+  for(let i=0;i<firstDay;i++)calendar.appendChild(document.createElement('div'));
+  const today=new Date();
+  for(let day=1;day<=daysInMonth;day++){
+    const div=document.createElement('div');
+    div.className='calendar-day';
+    div.innerHTML='<strong>'+day+'</strong>';
+    if(year===today.getFullYear()&&month===today.getMonth()&&day===today.getDate()){div.style.background='#2a9d8f';div.style.color='white'}
+    const dayAppointments=appointments.filter(a=>{const parts=a.date.split('-');return parseInt(parts[0])===year&&(parseInt(parts[1])-1)===month&&parseInt(parts[2])===day});
+    dayAppointments.forEach(appt=>{
+      const patient=patients.find(p=>p.id===appt.patientId);
+      const apptDiv=document.createElement('div');
+      apptDiv.className='appointment'+(appt.cancelled?' cancelled':'');
+      apptDiv.innerHTML='<span>'+appt.time+' '+(patient?patient.name.split(' ')[0]:'')+'</span>';
+      const actions=document.createElement('div');
+      actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\''+appt.id+'\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\''+appt.id+'\')">'+(appt.cancelled?'↩':'✕')+'</button>';
+      apptDiv.appendChild(actions);
+      div.appendChild(apptDiv)
+    });
+    div.onclick=()=>openAppointmentModal(year,month,day);
+    calendar.appendChild(div)
+  }
 }
 
 function changeMonth(delta){currentDate.setMonth(currentDate.getMonth()+delta);renderCalendar()}
 
 function renderPatients(){
-const list=document.getElementById('patientsList');
-list.innerHTML='';
-patients.forEach(p=>{
-const patientAppts=appointments.filter(a=>a.patientId===p.id&&!a.cancelled);
-const pending=patientAppts.filter(a=>!a.paid).length;
-const card=document.createElement('div');
-card.className='card';
-let html='<h3>'+p.name+'</h3><p>📱 '+p.phone+'</p><p>💰 R$ '+parseFloat(p.defaultValue||0).toFixed(2)+'</p>';
-if(pending>0)html+='<p style="color:#e76f51">⚠️ '+pending+' pendente(s)</p>';
-card.innerHTML=html;
-card.onclick=()=>openPatientModal(p.id);
-list.appendChild(card)
-})
+  const list=document.getElementById('patientsList');
+  list.innerHTML='';
+  patients.forEach(p=>{
+    const patientAppts=appointments.filter(a=>a.patientId===p.id&&!a.cancelled);
+    const pending=patientAppts.filter(a=>!a.paid).length;
+    const card=document.createElement('div');
+    card.className='card';
+    let html='<h3>'+p.name+'</h3><p>📱 '+p.phone+'</p><p>💰 R$ '+parseFloat(p.defaultValue||0).toFixed(2)+'</p>';
+    if(pending>0)html+='<p style="color:#e76f51">⚠️ '+pending+' pendente(s)</p>';
+    card.innerHTML=html;
+    card.onclick=()=>openPatientModal(p.id);
+    list.appendChild(card)
+  })
 }
 
 function searchPatients(term){
-document.querySelectorAll('#patientsList .card').forEach(card=>{
-card.style.display=card.querySelector('h3').textContent.toLowerCase().includes(term.toLowerCase())?'block':'none'
-})
+  document.querySelectorAll('#patientsList .card').forEach(card=>{
+    card.style.display=card.querySelector('h3').textContent.toLowerCase().includes(term.toLowerCase())?'block':'none'
+  })
 }
 
 function openPatientModal(patientId){
-currentPatientId=patientId;
-selectedSessions.clear();
-document.getElementById('patientId').value='';
-document.getElementById('patientName').value='';
-document.getElementById('patientPhone').value='';
-document.getElementById('patientEmail').value='';
-document.getElementById('patientValue').value='';
-document.getElementById('patientComplaint').value='';
-showPatientTab('info');
-if(patientId){
-const p=patients.find(x=>x.id===patientId);
-document.getElementById('patientModalTitle').textContent='Editar Paciente';
-document.getElementById('patientId').value=p.id;
-document.getElementById('patientName').value=p.name;
-document.getElementById('patientPhone').value=p.phone;
-document.getElementById('patientEmail').value=p.email||'';
-document.getElementById('patientValue').value=p.defaultValue||'';
-document.getElementById('patientComplaint').value=p.complaint||'';
-document.getElementById('btnDeletePatient').style.display='block';
-renderPatientFinance();
-renderEvolutions()
-}else{
-document.getElementById('patientModalTitle').textContent='Novo Paciente';
-document.getElementById('btnDeletePatient').style.display='none'
-}
-document.getElementById('patientModal').classList.add('active')
+  currentPatientId=patientId;
+  selectedSessions.clear();
+  document.getElementById('patientId').value='';
+  document.getElementById('patientName').value='';
+  document.getElementById('patientPhone').value='';
+  document.getElementById('patientEmail').value='';
+  document.getElementById('patientValue').value='';
+  document.getElementById('patientComplaint').value='';
+  showPatientTab('info');
+  if(patientId){
+    const p=patients.find(x=>x.id===patientId);
+    document.getElementById('patientModalTitle').textContent='Editar Paciente';
+    document.getElementById('patientId').value=p.id;
+    document.getElementById('patientName').value=p.name;
+    document.getElementById('patientPhone').value=p.phone;
+    document.getElementById('patientEmail').value=p.email||'';
+    document.getElementById('patientValue').value=p.defaultValue||'';
+    document.getElementById('patientComplaint').value=p.complaint||'';
+    document.getElementById('btnDeletePatient').style.display='block';
+    renderPatientFinance();
+    renderEvolutions()
+  }else{
+    document.getElementById('patientModalTitle').textContent='Novo Paciente';
+    document.getElementById('btnDeletePatient').style.display='none'
+  }
+  document.getElementById('patientModal').classList.add('active')
 }
 
 function savePatient(){
-const id=document.getElementById('patientId').value;
-const data={id:id||Date.now().toString(),name:document.getElementById('patientName').value,phone:document.getElementById('patientPhone').value,email:document.getElementById('patientEmail').value,defaultValue:document.getElementById('patientValue').value,complaint:document.getElementById('patientComplaint').value};
-if(!data.name||!data.phone){alert('Preencha nome e telefone!');return}
-if(id){const idx=patients.findIndex(p=>p.id===id);patients[idx]=data}else{patients.push(data)}
-saveUserData();
-closeModal('patientModal');
-renderPatients();
-loadPatientSelect()
+  const id=document.getElementById('patientId').value;
+  const data={id:id||Date.now().toString(),name:document.getElementById('patientName').value,phone:document.getElementById('patientPhone').value,email:document.getElementById('patientEmail').value,defaultValue:document.getElementById('patientValue').value,complaint:document.getElementById('patientComplaint').value};
+  if(!data.name||!data.phone){alert('Preencha nome e telefone!');return}
+  if(id){const idx=patients.findIndex(p=>p.id===id);patients[idx]=data}else{patients.push(data)}
+  saveUserData();
+  closeModal('patientModal');
+  renderPatients();
+  loadPatientSelect()
 }
 
 function deletePatient(){
-if(!confirm('Excluir paciente e todos os dados?'))return;
-patients=patients.filter(p=>p.id!==currentPatientId);
-appointments=appointments.filter(a=>a.patientId!==currentPatientId);
-evolutions=evolutions.filter(e=>e.patientId!==currentPatientId);
-saveUserData();
-closeModal('patientModal');
-renderPatients();
-renderCalendar();
-updateFinancialSummary()
+  if(!confirm('Excluir paciente e todos os dados?'))return;
+  patients=patients.filter(p=>p.id!==currentPatientId);
+  appointments=appointments.filter(a=>a.patientId!==currentPatientId);
+  evolutions=evolutions.filter(e=>e.patientId!==currentPatientId);
+  saveUserData();
+  closeModal('patientModal');
+  renderPatients();
+  renderCalendar();
+  updateFinancialSummary()
 }
 
 function showPatientTab(tab){
-document.querySelectorAll('#patientModal .tab').forEach(t=>t.classList.remove('active'));
-document.querySelectorAll('#patientModal .tab-content').forEach(t=>t.classList.remove('active'));
-event.target.classList.add('active');
-document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
-if(tab==='financeiro')renderPatientFinance();
-if(tab==='evolucao')renderEvolutions()
+  document.querySelectorAll('#patientModal .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#patientModal .tab-content').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  if(tab==='financeiro')renderPatientFinance();
+  if(tab==='evolucao')renderEvolutions()
 }
 
 function openAppointmentModal(year,month,day){
-currentApptId=null;
-document.getElementById('apptPatient').value='';
-document.getElementById('apptTime').value='';
-document.getElementById('apptValue').value='';
-document.getElementById('apptNotes').value='';
-document.getElementById('btnWhatsAppt').style.display='none';
-document.getElementById('btnToggleCancel').style.display='none';
-if(year!==undefined)document.getElementById('apptDate').value=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-else document.getElementById('apptDate').value=new Date().toISOString().split('T')[0];
-document.getElementById('appointmentModal').classList.add('active')
+  currentApptId=null;
+  document.getElementById('apptPatient').value='';
+  document.getElementById('apptTime').value='';
+  document.getElementById('apptValue').value='';
+  document.getElementById('apptNotes').value='';
+  document.getElementById('btnWhatsAppt').style.display='none';
+  document.getElementById('btnToggleCancel').style.display='none';
+  if(year!==undefined)document.getElementById('apptDate').value=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  else document.getElementById('apptDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('appointmentModal').classList.add('active')
 }
 
 function editAppointment(id){
-const appt=appointments.find(a=>a.id===id);
-currentApptId=id;
-document.getElementById('apptPatient').value=appt.patientId;
-document.getElementById('apptDate').value=appt.date;
-document.getElementById('apptTime').value=appt.time;
-document.getElementById('apptType').value=appt.type;
-document.getElementById('apptValue').value=appt.value;
-document.getElementById('apptNotes').value=appt.notes||'';
-document.getElementById('btnWhatsAppt').style.display='inline-block';
-document.getElementById('btnToggleCancel').style.display='inline-block';
-const btnCancel=document.getElementById('btnToggleCancel');
-if(appt.cancelled){btnCancel.textContent='↩ Reativar';btnCancel.className='btn btn-success'}
-else{btnCancel.textContent='❌ Cancelar';btnCancel.className='btn btn-warning'}
-document.getElementById('appointmentModal').classList.add('active')
+  const appt=appointments.find(a=>a.id===id);
+  currentApptId=id;
+  document.getElementById('apptPatient').value=appt.patientId;
+  document.getElementById('apptDate').value=appt.date;
+  document.getElementById('apptTime').value=appt.time;
+  document.getElementById('apptType').value=appt.type;
+  document.getElementById('apptValue').value=appt.value;
+  document.getElementById('apptNotes').value=appt.notes||'';
+  document.getElementById('btnWhatsAppt').style.display='inline-block';
+  document.getElementById('btnToggleCancel').style.display='inline-block';
+  const btnCancel=document.getElementById('btnToggleCancel');
+  if(appt.cancelled){btnCancel.textContent='↩ Reativar';btnCancel.className='btn btn-success'}
+  else{btnCancel.textContent='❌ Cancelar';btnCancel.className='btn btn-warning'}
+  document.getElementById('appointmentModal').classList.add('active')
 }
 
 function saveAppointment(){
-const patientId=document.getElementById('apptPatient').value;
-if(!patientId){alert('Selecione um paciente!');return}
-const patient=patients.find(p=>p.id===patientId);
-const data={id:currentApptId||Date.now().toString(),patientId,date:document.getElementById('apptDate').value,time:document.getElementById('apptTime').value,type:document.getElementById('apptType').value,value:document.getElementById('apptValue').value||patient.defaultValue||0,notes:document.getElementById('apptNotes').value,paid:currentApptId?appointments.find(a=>a.id===currentApptId).paid:false,cancelled:currentApptId?appointments.find(a=>a.id===currentApptId).cancelled:false};
-if(currentApptId){const idx=appointments.findIndex(a=>a.id===currentApptId);appointments[idx]=data}else{appointments.push(data)}
-saveUserData();
-closeModal('appointmentModal');
-renderCalendar();
-updateFinancialSummary()
+  const patientId=document.getElementById('apptPatient').value;
+  if(!patientId){alert('Selecione um paciente!');return}
+  const patient=patients.find(p=>p.id===patientId);
+  const data={id:currentApptId||Date.now().toString(),patientId,date:document.getElementById('apptDate').value,time:document.getElementById('apptTime').value,type:document.getElementById('apptType').value,value:document.getElementById('apptValue').value||patient.defaultValue||0,notes:document.getElementById('apptNotes').value,paid:currentApptId?appointments.find(a=>a.id===currentApptId).paid:false,cancelled:currentApptId?appointments.find(a=>a.id===currentApptId).cancelled:false};
+  if(currentApptId){const idx=appointments.findIndex(a=>a.id===currentApptId);appointments[idx]=data}else{appointments.push(data)}
+  saveUserData();
+  closeModal('appointmentModal');
+  renderCalendar();
+  updateFinancialSummary()
 }
 
 function toggleCancelAppointment(){if(!currentApptId)return;toggleCancelAppointmentDirect(currentApptId);closeModal('appointmentModal')}
 function toggleCancelAppointmentDirect(id){const appt=appointments.find(a=>a.id===id);appt.cancelled=!appt.cancelled;saveUserData();renderCalendar();updateFinancialSummary()}
 
 function sendAppointmentWhatsApp(){
-if(!currentApptId)return;
-const appt=appointments.find(a=>a.id===currentApptId);
-const patient=patients.find(p=>p.id===appt.patientId);
-const sig=getProfessionalSignature();
-let msg='Olá '+patient.name+', tudo bem? 😊\n\nConfirmação de agendamento:\n\n📅 Data: '+formatDate(appt.date)+'\n⏰ Horário: '+appt.time+'\n🏥 Local: '+sig.clinic+'\n\n';
-if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'')}
-else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.'}
-window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank')
+  if(!currentApptId)return;
+  const appt=appointments.find(a=>a.id===currentApptId);
+  const patient=patients.find(p=>p.id===appt.patientId);
+  const sig=getProfessionalSignature();
+  let msg='Olá '+patient.name+', tudo bem? 😊\n\nConfirmação de agendamento:\n\n📅 Data: '+formatDate(appt.date)+'\n⏰ Horário: '+appt.time+'\n🏥 Local: '+sig.clinic+'\n\n';
+  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'')}
+  else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.'}
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank')
 }
 
 function renderFinancialTable(){
-const tbody=document.getElementById('financialTable');
-tbody.innerHTML='';
-appointments.filter(a=>!a.cancelled).sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
-const patient=patients.find(p=>p.id===appt.patientId);
-const row=document.createElement('tr');
-row.innerHTML='<td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'✅ Pago':'⏳ Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
-tbody.appendChild(row)
-})
+  const tbody=document.getElementById('financialTable');
+  tbody.innerHTML='';
+  appointments.filter(a=>!a.cancelled).sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
+    const patient=patients.find(p=>p.id===appt.patientId);
+    const row=document.createElement('tr');
+    row.innerHTML='<td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'✅ Pago':'⏳ Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
+    tbody.appendChild(row)
+  })
 }
 
+let selectedSessions=new Set();
+
 function renderPatientFinance(){
-const patientAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled);
-const paid=patientAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-const pending=patientAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-document.getElementById('patientPaid').textContent='R$ '+paid.toFixed(2);
-document.getElementById('patientPending').textContent='R$ '+pending.toFixed(2);
-const tbody=document.getElementById('patientFinanceTable');
-tbody.innerHTML='';
-patientAppts.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
-const row=document.createElement('tr');
-row.className='session-row'+(selectedSessions.has(appt.id)?' selected':'');
-row.onclick=(e)=>{if(e.target.type!=='checkbox')toggleSessionSelection(appt.id)};
-row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\''+appt.id+'\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
-tbody.appendChild(row)
-})
+  const patientAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled);
+  const paid=patientAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const pending=patientAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  document.getElementById('patientPaid').textContent='R$ '+paid.toFixed(2);
+  document.getElementById('patientPending').textContent='R$ '+pending.toFixed(2);
+  const tbody=document.getElementById('patientFinanceTable');
+  tbody.innerHTML='';
+  patientAppts.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
+    const row=document.createElement('tr');
+    row.className='session-row'+(selectedSessions.has(appt.id)?' selected':'');
+    row.onclick=(e)=>{if(e.target.type!=='checkbox')toggleSessionSelection(appt.id)};
+    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\''+appt.id+'\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
+    tbody.appendChild(row)
+  })
 }
 
 function toggleSessionSelection(apptId){
-if(selectedSessions.has(apptId))selectedSessions.delete(apptId);
-else selectedSessions.add(apptId);
-renderPatientFinance()
+  if(selectedSessions.has(apptId))selectedSessions.delete(apptId);
+  else selectedSessions.add(apptId);
+  renderPatientFinance()
 }
 
 function toggleAllSessions(){
-const patientAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled&&!a.paid);
-const allSelected=patientAppts.every(a=>selectedSessions.has(a.id));
-patientAppts.forEach(a=>allSelected?selectedSessions.delete(a.id):selectedSessions.add(a.id));
-renderPatientFinance();
-document.getElementById('selectAllSessions').checked=!allSelected
+  const patientAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled&&!a.paid);
+  const allSelected=patientAppts.every(a=>selectedSessions.has(a.id));
+  patientAppts.forEach(a=>allSelected?selectedSessions.delete(a.id):selectedSessions.add(a.id));
+  renderPatientFinance();
+  document.getElementById('selectAllSessions').checked=!allSelected
 }
 
 function sendPendingSessionsWhatsApp(){
-if(selectedSessions.size===0){alert('Selecione pelo menos uma sessão!');return}
-const patient=patients.find(p=>p.id===currentPatientId);
-const sig=getProfessionalSignature();
-let total=0,sessionsList='';
-const selectedAppts=appointments.filter(a=>selectedSessions.has(a.id)).sort((a,b)=>new Date(a.date)-new Date(b.date));
-selectedAppts.forEach((appt,index)=>{total+=parseFloat(appt.value||0);sessionsList+=(index+1)+'. '+formatDate(appt.date)+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\n'});
-let msg='Olá '+patient.name+', tudo bem? 😊\n\nSessões em aberto:\n\n'+sessionsList+'\n💰 *Total: R$ '+total.toFixed(2)+'*\n\n';
-if(sig.pix)msg+='💳 Chave Pix:\n*'+sig.pix+'*\n\n';
-msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\n\nAtenciosamente,\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
-window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank')
+  if(selectedSessions.size===0){alert('Selecione pelo menos uma sessão!');return}
+  const patient=patients.find(p=>p.id===currentPatientId);
+  const sig=getProfessionalSignature();
+  let total=0,sessionsList='';
+  const selectedAppts=appointments.filter(a=>selectedSessions.has(a.id)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  selectedAppts.forEach((appt,index)=>{total+=parseFloat(appt.value||0);sessionsList+=(index+1)+'. '+formatDate(appt.date)+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\n'});
+  let msg='Olá '+patient.name+', tudo bem? 😊\n\nSessões em aberto:\n\n'+sessionsList+'\n💰 *Total: R$ '+total.toFixed(2)+'*\n\n';
+  if(sig.pix)msg+='💳 Chave Pix:\n*'+sig.pix+'*\n\n';
+  msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\n\nAtenciosamente,\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank')
 }
 
 function updateFinancialSummary(){
-const activeAppts=appointments.filter(a=>!a.cancelled);
-const received=activeAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-const pending=activeAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-document.getElementById('totalReceived').textContent='R$ '+received.toFixed(2);
-document.getElementById('totalPending').textContent='R$ '+pending.toFixed(2);
-document.getElementById('totalSessions').textContent=activeAppts.length
+  const activeAppts=appointments.filter(a=>!a.cancelled);
+  const received=activeAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const pending=activeAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  document.getElementById('totalReceived').textContent='R$ '+received.toFixed(2);
+  document.getElementById('totalPending').textContent='R$ '+pending.toFixed(2);
+  document.getElementById('totalSessions').textContent=activeAppts.length
 }
 
 function togglePayment(id){
-const appt=appointments.find(a=>a.id===id);
-appt.paid=!appt.paid;
-saveUserData();
-renderFinancialTable();
-updateFinancialSummary();
-renderCalendar();
-if(currentPatientId)renderPatientFinance()
+  const appt=appointments.find(a=>a.id===id);
+  appt.paid=!appt.paid;
+  saveUserData();
+  renderFinancialTable();
+  updateFinancialSummary();
+  renderCalendar();
+  if(currentPatientId)renderPatientFinance()
 }
 
 function renderEvolutions(){
-const list=document.getElementById('evolutionsList');
-list.innerHTML='';
-evolutions.filter(e=>e.patientId===currentPatientId).sort((a,b)=>new Date(b.date+'T'+b.time)-new Date(a.date+'T'+a.time)).forEach(evo=>{
-const div=document.createElement('div');
-div.style.cssText='background:#f8f9fa;padding:15px;margin-bottom:10px;border-radius:8px;border-left:4px solid #2a9d8f';
-div.innerHTML='<small style="color:#666">'+formatDate(evo.date)+' às '+evo.time+'</small><p style="margin-top:5px">'+evo.text+'</p>';
-list.appendChild(div)
-})
+  const list=document.getElementById('evolutionsList');
+  list.innerHTML='';
+  evolutions.filter(e=>e.patientId===currentPatientId).sort((a,b)=>new Date(b.date+'T'+b.time)-new Date(a.date+'T'+a.time)).forEach(evo=>{
+    const div=document.createElement('div');
+    div.style.cssText='background:#f8f9fa;padding:15px;margin-bottom:10px;border-radius:8px;border-left:4px solid #2a9d8f';
+    div.innerHTML='<small style="color:#666">'+formatDate(evo.date)+' às '+evo.time+'</small><p style="margin-top:5px">'+evo.text+'</p>';
+    list.appendChild(div)
+  })
 }
 
 function addEvolution(){
-const text=document.getElementById('newEvolution').value;
-if(!text.trim())return;
-const now=new Date();
-evolutions.push({id:Date.now().toString(),patientId:currentPatientId,date:now.toISOString().split('T')[0],time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),text});
-saveUserData();
-document.getElementById('newEvolution').value='';
-renderEvolutions()
+  const text=document.getElementById('newEvolution').value;
+  if(!text.trim())return;
+  const now=new Date();
+  evolutions.push({id:Date.now().toString(),patientId:currentPatientId,date:now.toISOString().split('T')[0],time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),text});
+  saveUserData();
+  document.getElementById('newEvolution').value='';
+  renderEvolutions()
 }
 
 function generatePatientReport(){
-const month=document.getElementById('reportMonthPatient').value;
-if(!month){alert('Selecione o mês!');return}
-const sig=getProfessionalSignature();
-const[year,mon]=month.split('-').map(Number);
-const patient=patients.find(p=>p.id===currentPatientId);
-const monthEvos=evolutions.filter(e=>e.patientId===currentPatientId&&e.date.startsWith(month)).sort((a,b)=>new Date(a.date)-new Date(b.date));
-const monthAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled&&a.date.startsWith(month));
-const monthName=new Date(year,mon-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-let report='RELATÓRIO MENSAL - '+sig.clinic.toUpperCase()+'\n'+(sig.name?sig.name+'\n':'')+(sig.crefito?sig.crefito+'\n':'')+'================================\n\nPaciente: '+patient.name+'\nPeríodo: '+monthName+'\n\n📋 RESUMO\nSessões: '+monthAppts.length+'\n\n';
-if(monthAppts.length>0){report+='Datas:\n';monthAppts.forEach(a=>{report+='• '+formatDate(a.date)+' - '+a.time+'\n'});report+='\n'}
-report+='📊 EVOLUÇÃO\n\n';
-if(monthEvos.length===0)report+='Nenhuma evolução registrada.\n';
-else monthEvos.forEach((evo,i)=>{report+='Sessão '+(i+1)+' - '+formatDate(evo.date)+'\n'+evo.text+'\n--------------------------------\n\n'});
-report+='\n'+sig.clinic+(sig.name?'\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
-currentReport=report;
-document.getElementById('reportContent').textContent=report;
-document.getElementById('reportContainer').style.display='block'
+  const month=document.getElementById('reportMonthPatient').value;
+  if(!month){alert('Selecione o mês!');return}
+  const sig=getProfessionalSignature();
+  const[year,mon]=month.split('-').map(Number);
+  const patient=patients.find(p=>p.id===currentPatientId);
+  const monthEvos=evolutions.filter(e=>e.patientId===currentPatientId&&e.date.startsWith(month)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const monthAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled&&a.date.startsWith(month));
+  const monthName=new Date(year,mon-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  let report='RELATÓRIO MENSAL - '+sig.clinic.toUpperCase()+'\n'+(sig.name?sig.name+'\n':'')+(sig.crefito?sig.crefito+'\n':'')+'================================\n\nPaciente: '+patient.name+'\nPeríodo: '+monthName+'\n\n📋 RESUMO\nSessões: '+monthAppts.length+'\n\n';
+  if(monthAppts.length>0){report+='Datas:\n';monthAppts.forEach(a=>{report+='• '+formatDate(a.date)+' - '+a.time+'\n'});report+='\n'}
+  report+='📊 EVOLUÇÃO\n\n';
+  if(monthEvos.length===0)report+='Nenhuma evolução registrada.\n';
+  else monthEvos.forEach((evo,i)=>{report+='Sessão '+(i+1)+' - '+formatDate(evo.date)+'\n'+evo.text+'\n--------------------------------\n\n'});
+  report+='\n'+sig.clinic+(sig.name?'\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
+  currentReport=report;
+  document.getElementById('reportContent').textContent=report;
+  document.getElementById('reportContainer').style.display='block'
 }
 
 function copyReport(){navigator.clipboard.writeText(currentReport).then(()=>alert('Copiado!'))}
@@ -774,63 +875,71 @@ function sendReportWhatsApp(){const patient=patients.find(p=>p.id===currentPatie
 
 function openExpenseModal(){document.getElementById('expenseDate').value=new Date().toISOString().split('T')[0];document.getElementById('expenseModal').classList.add('active')}
 function saveExpense(){
-const data={id:Date.now().toString(),date:document.getElementById('expenseDate').value,description:document.getElementById('expenseDesc').value,category:document.getElementById('expenseCategory').value,value:parseFloat(document.getElementById('expenseValue').value)};
-if(!data.date||!data.description||!data.value){alert('Preencha todos os campos!');return}
-expenses.push(data);
-saveUserData();
-closeModal('expenseModal');
-document.getElementById('expenseDesc').value='';
-document.getElementById('expenseValue').value='';
-renderCashFlow()
+  const data={id:Date.now().toString(),date:document.getElementById('expenseDate').value,description:document.getElementById('expenseDesc').value,category:document.getElementById('expenseCategory').value,value:parseFloat(document.getElementById('expenseValue').value)};
+  if(!data.date||!data.description||!data.value){alert('Preencha todos os campos!');return}
+  expenses.push(data);
+  saveUserData();
+  closeModal('expenseModal');
+  document.getElementById('expenseDesc').value='';
+  document.getElementById('expenseValue').value='';
+  renderCashFlow()
 }
 
 function showCashFlowTab(tab){
-document.querySelectorAll('#fluxo .tab').forEach(t=>t.classList.remove('active'));
-document.querySelectorAll('#fluxo .tab-content').forEach(t=>t.classList.remove('active'));
-event.target.classList.add('active');
-document.getElementById('cf'+tab.charAt(0).toUpperCase()+tab.slice(1)+'Tab').classList.add('active')
+  document.querySelectorAll('#fluxo .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#fluxo .tab-content').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('cf'+tab.charAt(0).toUpperCase()+tab.slice(1)+'Tab').classList.add('active')
 }
 
 function renderCashFlow(){
-const month=document.getElementById('cashFlowMonth').value;
-if(!month)return;
-const[year,mon]=month.split('-').map(Number);
-const entries=appointments.filter(a=>a.paid&&!a.cancelled&&a.date.startsWith(month));
-const exits=expenses.filter(e=>e.date.startsWith(month));
-const totalEntries=entries.reduce((s,a)=>s+parseFloat(a.value||0),0);
-const totalExits=exits.reduce((s,e)=>s+parseFloat(e.value||0),0);
-document.getElementById('cfEntries').textContent='R$ '+totalEntries.toFixed(2);
-document.getElementById('cfExits').textContent='R$ '+totalExits.toFixed(2);
-document.getElementById('cfBalance').textContent='R$ '+(totalEntries-totalExits).toFixed(2);
-const entriesBody=document.getElementById('entriesTable');
-entriesBody.innerHTML='';
-entries.forEach(a=>{const p=patients.find(x=>x.id===a.patientId);const row=document.createElement('tr');row.innerHTML='<td>'+formatDate(a.date)+'</td><td>'+(p?p.name:'-')+'</td><td>'+a.type+'</td><td>R$ '+parseFloat(a.value||0).toFixed(2)+'</td>';entriesBody.appendChild(row)});
-const exitsBody=document.getElementById('exitsTable');
-exitsBody.innerHTML='';
-exits.forEach(e=>{const row=document.createElement('tr');row.innerHTML='<td>'+formatDate(e.date)+'</td><td>'+e.description+'</td><td>'+e.category+'</td><td>R$ '+parseFloat(e.value).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\''+e.id+'\')">Excluir</button></td>';exitsBody.appendChild(row)})
+  const month=document.getElementById('cashFlowMonth').value;
+  if(!month)return;
+  const[year,mon]=month.split('-').map(Number);
+  const entries=appointments.filter(a=>a.paid&&!a.cancelled&&a.date.startsWith(month));
+  const exits=expenses.filter(e=>e.date.startsWith(month));
+  const totalEntries=entries.reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const totalExits=exits.reduce((s,e)=>s+parseFloat(e.value||0),0);
+  document.getElementById('cfEntries').textContent='R$ '+totalEntries.toFixed(2);
+  document.getElementById('cfExits').textContent='R$ '+totalExits.toFixed(2);
+  document.getElementById('cfBalance').textContent='R$ '+(totalEntries-totalExits).toFixed(2);
+  const entriesBody=document.getElementById('entriesTable');
+  entriesBody.innerHTML='';
+  entries.forEach(a=>{const p=patients.find(x=>x.id===a.patientId);const row=document.createElement('tr');row.innerHTML='<td>'+formatDate(a.date)+'</td><td>'+(p?p.name:'-')+'</td><td>'+a.type+'</td><td>R$ '+parseFloat(a.value||0).toFixed(2)+'</td>';entriesBody.appendChild(row)});
+  const exitsBody=document.getElementById('exitsTable');
+  exitsBody.innerHTML='';
+  exits.forEach(e=>{const row=document.createElement('tr');row.innerHTML='<td>'+formatDate(e.date)+'</td><td>'+e.description+'</td><td>'+e.category+'</td><td>R$ '+parseFloat(e.value).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\''+e.id+'\')">Excluir</button></td>';exitsBody.appendChild(row)})
 }
 
 function deleteExpense(id){if(!confirm('Excluir despesa?'))return;expenses=expenses.filter(e=>e.id!==id);saveUserData();renderCashFlow()}
 
 function renderReports(){
-const month=document.getElementById('reportMonth').value;
-if(!month)return;
-const monthAppts=appointments.filter(a=>!a.cancelled&&a.date.startsWith(month));
-const revenue=monthAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-document.getElementById('reportSessions').textContent=monthAppts.length;
-document.getElementById('reportRevenue').textContent='R$ '+revenue.toFixed(2);
-const stats={};
-monthAppts.forEach(a=>{if(!stats[a.patientId])stats[a.patientId]={count:0,total:0};stats[a.patientId].count++;if(a.paid)stats[a.patientId].total+=parseFloat(a.value||0)});
-const tbody=document.getElementById('reportTable');
-tbody.innerHTML='';
-for(let pid in stats){const p=patients.find(x=>x.id===pid);const s=stats[pid];const row=document.createElement('tr');row.innerHTML='<td>'+(p?p.name:'-')+'</td><td>'+s.count+'</td><td>R$ '+s.total.toFixed(2)+'</td>';tbody.appendChild(row)}
+  const month=document.getElementById('reportMonth').value;
+  if(!month)return;
+  const monthAppts=appointments.filter(a=>!a.cancelled&&a.date.startsWith(month));
+  const revenue=monthAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  document.getElementById('reportSessions').textContent=monthAppts.length;
+  document.getElementById('reportRevenue').textContent='R$ '+revenue.toFixed(2);
+  const stats={};
+  monthAppts.forEach(a=>{if(!stats[a.patientId])stats[a.patientId]={count:0,total:0};stats[a.patientId].count++;if(a.paid)stats[a.patientId].total+=parseFloat(a.value||0)});
+  const tbody=document.getElementById('reportTable');
+  tbody.innerHTML='';
+  for(let pid in stats){const p=patients.find(x=>x.id===pid);const s=stats[pid];const row=document.createElement('tr');row.innerHTML='<td>'+(p?p.name:'-')+'</td><td>'+s.count+'</td><td>R$ '+s.total.toFixed(2)+'</td>';tbody.appendChild(row)}
 }
 
 function formatDate(dateStr){if(!dateStr)return'';const parts=dateStr.split('-');return parts[2]+'/'+parts[1]+'/'+parts[0]}
 function loadPatientSelect(){const select=document.getElementById('apptPatient');select.innerHTML='<option value="">Selecione...</option>';patients.forEach(p=>{const opt=document.createElement('option');opt.value=p.id;opt.textContent=p.name;select.appendChild(opt)})}
 function closeModal(id){document.getElementById(id).classList.remove('active')}
 document.querySelectorAll('.modal').forEach(m=>{m.onclick=function(e){if(e.target===this)this.classList.remove('active')}});
-checkSession();
+
+// Formatar input do código automaticamente
+document.getElementById('activationCode').addEventListener('input', function(e) {
+  let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (value.length > 4 && value.charAt(4) !== '-') {
+    value = value.slice(0, 4) + '-' + value.slice(4);
+  }
+  e.target.value = value.slice(0, 9);
+});
 </script>
 </body>
 </html>
