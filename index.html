@@ -17,7 +17,6 @@ body{font-family:Arial,sans-serif;background:#f0f2f5}
 .login-box input{width:100%;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:16px}
 .login-btn{width:100%;padding:14px;background:#2a9d8f;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer}
 .login-error{color:#e76f51;margin-top:15px;display:none}
-.admin-badge{display:inline-block;background:#f4a261;color:white;padding:3px 10px;border-radius:12px;font-size:12px;margin-left:10px}
 .header{background:#264653;color:white;padding:15px;text-align:center}
 .user-bar{background:#1a3a47;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center}
 .user-bar button{background:rgba(255,255,255,0.2);border:none;color:white;padding:5px 15px;border-radius:5px;cursor:pointer}
@@ -47,6 +46,8 @@ body{font-family:Arial,sans-serif;background:#f0f2f5}
 .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000}
 .modal.active{display:flex}
 .modal-content{background:white;padding:30px;border-radius:10px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.close-btn{background:none;border:none;font-size:24px;cursor:pointer;color:#666}
 table{width:100%;border-collapse:collapse;margin-top:20px}
 th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}
 th{background:#f8f9fa}
@@ -55,15 +56,13 @@ th{background:#f8f9fa}
 .summary-card.green{background:#52b788}
 .summary-card.red{background:#e76f51}
 .summary-card.blue{background:#264653}
-.tabs{display:flex;gap:10px;margin-bottom:20px;border-bottom:2px solid #ddd}
+.tabs{display:flex;gap:10px;margin-bottom:20px;border-bottom:2px solid #ddd;flex-wrap:wrap}
 .tab{padding:10px 20px;background:none;border:none;cursor:pointer}
 .tab.active{color:#2a9d8f;border-bottom:2px solid #2a9d8f}
 .tab-content{display:none}
 .tab-content.active{display:block}
 .settings-box{background:#e8f4f8;padding:20px;border-radius:8px;margin-bottom:20px;border-left:4px solid #264653}
 .footer{text-align:center;padding:20px;background:#264653;color:white;margin-top:40px;font-size:12px}
-.user-card{background:#f8f9fa;padding:15px;margin-bottom:10px;border-radius:8px;border-left:4px solid #2a9d8f;display:flex;justify-content:space-between;align-items:center}
-.user-card.blocked{border-left-color:#e76f51;opacity:0.7}
 .session-checkbox{margin-right:10px;transform:scale(1.2)}
 .session-row{cursor:pointer}
 .session-row:hover{background:#f0f8ff}
@@ -83,6 +82,7 @@ th{background:#f8f9fa}
 </style>
 </head>
 <body>
+
 <!-- TELA DE LOGIN -->
 <div id="loginScreen" class="login-container">
 <div class="login-box">
@@ -126,7 +126,7 @@ th{background:#f8f9fa}
 </div>
 
 <div class="user-bar">
-<div>👤 <span id="currentUserName"></span><span id="adminBadge" class="admin-badge" style="display:none">ADMIN</span></div>
+<div>👤 <span id="currentUserName">Profissional</span></div>
 <div><button onclick="logout()">🚪 Sair</button></div>
 </div>
 
@@ -137,26 +137,9 @@ th{background:#f8f9fa}
 <button onclick="showSection('fluxo')">📊 Fluxo de Caixa</button>
 <button onclick="showSection('relatorios')">📈 Relatórios</button>
 <button onclick="showSection('configuracoes')">⚙️ Configurações</button>
-<button id="btnUsuarios" onclick="showSection('usuarios')" style="display:none">👤 Usuários</button>
 </div>
 
 <div class="container">
-<div id="usuarios" class="section">
-<h2>👤 Gerenciamento de Usuários</h2>
-<div class="settings-box">
-<h3>Novo Usuário</h3>
-<div class="form-group"><label>Nome do Profissional *</label><input type="text" id="newUserName" placeholder="Ex: Dra. Maria Silva"></div>
-<div class="form-group"><label>CREFITO *</label><input type="text" id="newUserCrefito" placeholder="Ex: 123456-F"></div>
-<div class="form-group"><label>Empresa (opcional)</label><input type="text" id="newUserClinic" placeholder="Ex: ASM Fisioterapia"></div>
-<div class="form-group"><label>Chave Pix *</label><input type="text" id="newUserPix" placeholder="Ex: CPF, CNPJ, e-mail ou telefone"></div>
-<div class="form-group"><label>Usuário (login) *</label><input type="text" id="newUserLogin" placeholder="Ex: maria.silva"></div>
-<div class="form-group"><label>Senha *</label><input type="password" id="newUserPass" placeholder="Mínimo 6 caracteres"></div>
-<div class="form-group"><label>Confirmar Senha *</label><input type="password" id="newUserPass2" placeholder="Digite a senha novamente"></div>
-<button class="btn btn-primary" onclick="createUser()">➕ Criar Usuário</button>
-</div>
-<h3>Usuários Cadastrados</h3>
-<div id="usersList"></div>
-</div>
 
 <div id="configuracoes" class="section">
 <h2>⚙️ Configurações</h2>
@@ -231,8 +214,11 @@ th{background:#f8f9fa}
 <div class="summary-card blue"><h3 id="reportSessions">0</h3><p>Atendimentos</p></div>
 <div class="summary-card green"><h3 id="reportRevenue">R$ 0,00</h3><p>Faturamento</p></div>
 </div>
-<table><thead><tr><th>Paciente</th><th>Sessões</th><th>Total</th></tr></thead><tbody id="reportTable"></tbody></table>
+<table><thead><tr><th>Paciente</th><th>Sessões</th><p>Total</th></tr></thead>
+<tbody id="reportTable"></tbody>
+</table>
 </div>
+
 </div>
 
 <div class="modal" id="appointmentModal">
@@ -423,21 +409,16 @@ const VALID_CODES = [
 ];
 
 // ============================================
-// VARIÁVEIS DO SISTEMA (TODAS ORIGINAIS MANTIDAS)
+// VARIÁVEIS DO SISTEMA
 // ============================================
-let users=JSON.parse(localStorage.getItem('asm_users'))||{'admin':{name:'Administrador',password:'admin123',isAdmin:true,isBlocked:false,createdAt:new Date().toISOString(),crefito:'',clinic:'',pix:''}};
-let currentUser=null;
-let selectedSessions=new Set();
 let config={},patients=[],appointments=[],evolutions=[],expenses=[];
 let currentDate=new Date(),currentPatientId=null,currentApptId=null,currentReport='';
+let selectedSessions=new Set();
 
 // ============================================
 // FUNÇÕES DE LOGIN E ATIVAÇÃO
 // ============================================
 
-function saveUsers(){localStorage.setItem('asm_users',JSON.stringify(users))}
-
-// Verificar estado ao carregar
 window.onload = function() {
   const isActivated = localStorage.getItem('asm_activated');
   const isLoggedIn = localStorage.getItem('asm_logged_in');
@@ -480,13 +461,6 @@ function showMainSystem() {
   document.getElementById('activationScreen').style.display = 'none';
   document.getElementById('mainSystem').style.display = 'block';
   
-  // Inicializar sistema
-  currentUser = 'admin';
-  localStorage.setItem('asm_current_user', 'admin');
-  document.getElementById('currentUserName').textContent = users['admin'].name;
-  document.getElementById('adminBadge').style.display = 'inline-block';
-  document.getElementById('btnUsuarios').style.display = 'inline-block';
-  renderUsersList();
   loadUserData();
   initializeApp();
 }
@@ -548,103 +522,27 @@ function logout(){
   localStorage.removeItem('asm_logged_in');
   localStorage.removeItem('asm_activated');
   localStorage.removeItem('asm_activation_code');
-  localStorage.removeItem('asm_current_user');
   location.reload();
 }
 
 // ============================================
-// TODAS AS FUNÇÕES ORIGINAIS DO SISTEMA (MANTIDAS)
+// FUNÇÕES DO SISTEMA
 // ============================================
 
-function checkSession(){
-  const savedUser = localStorage.getItem('asm_current_user');
-  if(savedUser && users[savedUser] && !users[savedUser].isBlocked){
-    document.getElementById('loginUser').value = FIXED_USER;
-    document.getElementById('loginPass').focus();
-  }
-}
-
-function createUser(){
-  const name=document.getElementById('newUserName').value.trim();
-  const crefito=document.getElementById('newUserCrefito').value.trim();
-  const clinic=document.getElementById('newUserClinic').value.trim();
-  const pix=document.getElementById('newUserPix').value.trim();
-  const login=document.getElementById('newUserLogin').value.trim().toLowerCase();
-  const pass=document.getElementById('newUserPass').value;
-  const pass2=document.getElementById('newUserPass2').value;
-  if(!name||!crefito||!pix||!login||!pass){alert('Preencha todos os campos obrigatórios!');return}
-  if(pass.length<6){alert('Senha mínima de 6 caracteres!');return}
-  if(pass!==pass2){alert('Senhas não conferem!');return}
-  if(users[login]){alert('Usuário já existe!');return}
-  users[login]={name,password:pass,isAdmin:false,isBlocked:false,createdAt:new Date().toISOString(),crefito,clinic:clinic||'ASM Fisioterapia',pix};
-  saveUsers();
-  document.getElementById('newUserName').value='';
-  document.getElementById('newUserCrefito').value='';
-  document.getElementById('newUserClinic').value='';
-  document.getElementById('newUserPix').value='';
-  document.getElementById('newUserLogin').value='';
-  document.getElementById('newUserPass').value='';
-  document.getElementById('newUserPass2').value='';
-  renderUsersList();
-  alert('Usuário criado!\nLogin: '+login+'\nSenha: '+pass)
-}
-
-function renderUsersList(){
-  const container=document.getElementById('usersList');
-  container.innerHTML='';
-  for(let login in users){
-    const user=users[login];
-    const div=document.createElement('div');
-    div.className='user-card'+(user.isBlocked?' blocked':'');
-    let html='<div class="user-info"><h4>'+user.name+' '+(user.isAdmin?'<span class="admin-badge">ADMIN</span>':'')+'</h4>';
-    html+='<small>Login: '+login+' | CREFITO: '+(user.crefito||'-')+' | Pix: '+(user.pix||'-')+'</small></div>';
-    html+='<div>';
-    if(login!=='admin'){
-      html+='<button class="btn btn-warning" onclick="toggleBlockUser(\''+login+'\')">'+(user.isBlocked?'Desbloquear':'Bloquear')+'</button> ';
-      html+='<button class="btn btn-danger" onclick="deleteUser(\''+login+'\')">Excluir</button>'
-    }else{html+='<small>(Não alterável)</small>'}
-    html+='</div>';
-    div.innerHTML=html;
-    container.appendChild(div)
-  }
-}
-
-function toggleBlockUser(login){
-  if(!confirm('Tem certeza?'))return;
-  users[login].isBlocked=!users[login].isBlocked;
-  saveUsers();
-  renderUsersList()
-}
-
-function deleteUser(login){
-  if(!confirm('ATENÇÃO: Excluirá TODOS os dados deste usuário!\nTem certeza?'))return;
-  localStorage.removeItem('asm_patients_'+login);
-  localStorage.removeItem('asm_appointments_'+login);
-  localStorage.removeItem('asm_evolutions_'+login);
-  localStorage.removeItem('asm_expenses_'+login);
-  localStorage.removeItem('asm_config_'+login);
-  delete users[login];
-  saveUsers();
-  renderUsersList()
-}
-
 function loadUserData(){
-  const prefix='asm_'+currentUser+'_';
-  const userData=users[currentUser];
-  config=JSON.parse(localStorage.getItem(prefix+'config'))||{professionalName:userData.name,crefito:userData.crefito||'',clinicName:userData.clinic||'ASM Fisioterapia',pix:userData.pix||''};
-  patients=JSON.parse(localStorage.getItem(prefix+'patients'))||[];
-  appointments=JSON.parse(localStorage.getItem(prefix+'appointments'))||[];
-  evolutions=JSON.parse(localStorage.getItem(prefix+'evolutions'))||[];
-  expenses=JSON.parse(localStorage.getItem(prefix+'expenses'))||[]
+  config=JSON.parse(localStorage.getItem('asm_config'))||{professionalName:'',crefito:'',clinicName:'ASM Fisioterapia',pix:''};
+  patients=JSON.parse(localStorage.getItem('asm_patients'))||[];
+  appointments=JSON.parse(localStorage.getItem('asm_appointments'))||[];
+  evolutions=JSON.parse(localStorage.getItem('asm_evolutions'))||[];
+  expenses=JSON.parse(localStorage.getItem('asm_expenses'))||[];
 }
 
 function saveUserData(){
-  const prefix='asm_'+currentUser+'_';
-  localStorage.setItem(prefix+'config',JSON.stringify(config));
-  localStorage.setItem(prefix+'patients',JSON.stringify(patients));
-  localStorage.setItem(prefix+'appointments',JSON.stringify(appointments));
-  localStorage.setItem(prefix+'evolutions',JSON.stringify(evolutions));
-  localStorage.setItem(prefix+'expenses',JSON.stringify(expenses))
+  localStorage.setItem('asm_config',JSON.stringify(config));
+  localStorage.setItem('asm_patients',JSON.stringify(patients));
+  localStorage.setItem('asm_appointments',JSON.stringify(appointments));
+  localStorage.setItem('asm_evolutions',JSON.stringify(evolutions));
+  localStorage.setItem('asm_expenses',JSON.stringify(expenses));
 }
 
 function initializeApp(){
@@ -655,7 +553,7 @@ function initializeApp(){
   loadPatientSelect();
   const today=new Date().toISOString().slice(0,7);
   document.getElementById('cashFlowMonth').value=today;
-  document.getElementById('reportMonth').value=today
+  document.getElementById('reportMonth').value=today;
 }
 
 function loadConfig(){
@@ -663,7 +561,7 @@ function loadConfig(){
   document.getElementById('configCrefito').value=config.crefito;
   document.getElementById('configClinic').value=config.clinicName;
   document.getElementById('configPix').value=config.pix||'';
-  updateHeader()
+  updateHeader();
 }
 
 function saveConfig(){
@@ -674,16 +572,16 @@ function saveConfig(){
   if(!config.professionalName||!config.crefito){alert('Preencha nome e CREFITO!');return}
   saveUserData();
   updateHeader();
-  alert('Configurações salvas!')
+  alert('Configurações salvas!');
 }
 
 function updateHeader(){
   const subtitle=document.getElementById('headerSubtitle');
-  subtitle.textContent=config.professionalName?config.professionalName+' - CREFITO '+config.crefito:'Configure seus dados'
+  subtitle.textContent=config.professionalName?config.professionalName+' - CREFITO '+config.crefito:'Configure seus dados';
 }
 
 function getProfessionalSignature(){
-  return{name:config.professionalName||'Profissional',crefito:config.crefito?'CREFITO '+config.crefito:'',clinic:config.clinicName||'ASM Fisioterapia',pix:config.pix||''}
+  return{name:config.professionalName||'Profissional',crefito:config.crefito?'CREFITO '+config.crefito:'',clinic:config.clinicName||'ASM Fisioterapia',pix:config.pix||''};
 }
 
 function showSection(section){
@@ -694,7 +592,6 @@ function showSection(section){
   if(section==='financeiro')renderFinancialTable();
   if(section==='fluxo')renderCashFlow();
   if(section==='relatorios')renderReports();
-  if(section==='usuarios')renderUsersList()
 }
 
 function renderCalendar(){
@@ -721,14 +618,14 @@ function renderCalendar(){
       const actions=document.createElement('div');
       actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\''+appt.id+'\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\''+appt.id+'\')">'+(appt.cancelled?'↩':'✕')+'</button>';
       apptDiv.appendChild(actions);
-      div.appendChild(apptDiv)
+      div.appendChild(apptDiv);
     });
     div.onclick=()=>openAppointmentModal(year,month,day);
-    calendar.appendChild(div)
+    calendar.appendChild(div);
   }
 }
 
-function changeMonth(delta){currentDate.setMonth(currentDate.getMonth()+delta);renderCalendar()}
+function changeMonth(delta){currentDate.setMonth(currentDate.getMonth()+delta);renderCalendar();}
 
 function renderPatients(){
   const list=document.getElementById('patientsList');
@@ -742,14 +639,14 @@ function renderPatients(){
     if(pending>0)html+='<p style="color:#e76f51">⚠️ '+pending+' pendente(s)</p>';
     card.innerHTML=html;
     card.onclick=()=>openPatientModal(p.id);
-    list.appendChild(card)
-  })
+    list.appendChild(card);
+  });
 }
 
 function searchPatients(term){
   document.querySelectorAll('#patientsList .card').forEach(card=>{
-    card.style.display=card.querySelector('h3').textContent.toLowerCase().includes(term.toLowerCase())?'block':'none'
-  })
+    card.style.display=card.querySelector('h3').textContent.toLowerCase().includes(term.toLowerCase())?'block':'none';
+  });
 }
 
 function openPatientModal(patientId){
@@ -773,23 +670,23 @@ function openPatientModal(patientId){
     document.getElementById('patientComplaint').value=p.complaint||'';
     document.getElementById('btnDeletePatient').style.display='block';
     renderPatientFinance();
-    renderEvolutions()
+    renderEvolutions();
   }else{
     document.getElementById('patientModalTitle').textContent='Novo Paciente';
-    document.getElementById('btnDeletePatient').style.display='none'
+    document.getElementById('btnDeletePatient').style.display='none';
   }
-  document.getElementById('patientModal').classList.add('active')
+  document.getElementById('patientModal').classList.add('active');
 }
 
 function savePatient(){
   const id=document.getElementById('patientId').value;
   const data={id:id||Date.now().toString(),name:document.getElementById('patientName').value,phone:document.getElementById('patientPhone').value,email:document.getElementById('patientEmail').value,defaultValue:document.getElementById('patientValue').value,complaint:document.getElementById('patientComplaint').value};
   if(!data.name||!data.phone){alert('Preencha nome e telefone!');return}
-  if(id){const idx=patients.findIndex(p=>p.id===id);patients[idx]=data}else{patients.push(data)}
+  if(id){const idx=patients.findIndex(p=>p.id===id);patients[idx]=data;}else{patients.push(data);}
   saveUserData();
   closeModal('patientModal');
   renderPatients();
-  loadPatientSelect()
+  loadPatientSelect();
 }
 
 function deletePatient(){
@@ -801,7 +698,7 @@ function deletePatient(){
   closeModal('patientModal');
   renderPatients();
   renderCalendar();
-  updateFinancialSummary()
+  updateFinancialSummary();
 }
 
 function showPatientTab(tab){
@@ -810,7 +707,7 @@ function showPatientTab(tab){
   event.target.classList.add('active');
   document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
   if(tab==='financeiro')renderPatientFinance();
-  if(tab==='evolucao')renderEvolutions()
+  if(tab==='evolucao')renderEvolutions();
 }
 
 function openAppointmentModal(year,month,day){
@@ -823,7 +720,7 @@ function openAppointmentModal(year,month,day){
   document.getElementById('btnToggleCancel').style.display='none';
   if(year!==undefined)document.getElementById('apptDate').value=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
   else document.getElementById('apptDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('appointmentModal').classList.add('active')
+  document.getElementById('appointmentModal').classList.add('active');
 }
 
 function editAppointment(id){
@@ -838,9 +735,9 @@ function editAppointment(id){
   document.getElementById('btnWhatsAppt').style.display='inline-block';
   document.getElementById('btnToggleCancel').style.display='inline-block';
   const btnCancel=document.getElementById('btnToggleCancel');
-  if(appt.cancelled){btnCancel.textContent='↩ Reativar';btnCancel.className='btn btn-success'}
-  else{btnCancel.textContent='❌ Cancelar';btnCancel.className='btn btn-warning'}
-  document.getElementById('appointmentModal').classList.add('active')
+  if(appt.cancelled){btnCancel.textContent='↩ Reativar';btnCancel.className='btn btn-success';}
+  else{btnCancel.textContent='❌ Cancelar';btnCancel.className='btn btn-warning';}
+  document.getElementById('appointmentModal').classList.add('active');
 }
 
 function saveAppointment(){
@@ -848,25 +745,25 @@ function saveAppointment(){
   if(!patientId){alert('Selecione um paciente!');return}
   const patient=patients.find(p=>p.id===patientId);
   const data={id:currentApptId||Date.now().toString(),patientId,date:document.getElementById('apptDate').value,time:document.getElementById('apptTime').value,type:document.getElementById('apptType').value,value:document.getElementById('apptValue').value||patient.defaultValue||0,notes:document.getElementById('apptNotes').value,paid:currentApptId?appointments.find(a=>a.id===currentApptId).paid:false,cancelled:currentApptId?appointments.find(a=>a.id===currentApptId).cancelled:false};
-  if(currentApptId){const idx=appointments.findIndex(a=>a.id===currentApptId);appointments[idx]=data}else{appointments.push(data)}
+  if(currentApptId){const idx=appointments.findIndex(a=>a.id===currentApptId);appointments[idx]=data;}else{appointments.push(data);}
   saveUserData();
   closeModal('appointmentModal');
   renderCalendar();
-  updateFinancialSummary()
+  updateFinancialSummary();
 }
 
-function toggleCancelAppointment(){if(!currentApptId)return;toggleCancelAppointmentDirect(currentApptId);closeModal('appointmentModal')}
-function toggleCancelAppointmentDirect(id){const appt=appointments.find(a=>a.id===id);appt.cancelled=!appt.cancelled;saveUserData();renderCalendar();updateFinancialSummary()}
+function toggleCancelAppointment(){if(!currentApptId)return;toggleCancelAppointmentDirect(currentApptId);closeModal('appointmentModal');}
+function toggleCancelAppointmentDirect(id){const appt=appointments.find(a=>a.id===id);appt.cancelled=!appt.cancelled;saveUserData();renderCalendar();updateFinancialSummary();}
 
 function sendAppointmentWhatsApp(){
   if(!currentApptId)return;
   const appt=appointments.find(a=>a.id===currentApptId);
   const patient=patients.find(p=>p.id===appt.patientId);
   const sig=getProfessionalSignature();
-  let msg='Olá '+patient.name+', tudo bem? 😊\n\nConfirmação de agendamento:\n\n📅 Data: '+formatDate(appt.date)+'\n⏰ Horário: '+appt.time+'\n🏥 Local: '+sig.clinic+'\n\n';
-  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'')}
-  else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.'}
-  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank')
+  let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nConfirmação de agendamento:\\n\\n📅 Data: '+formatDate(appt.date)+'\\n⏰ Horário: '+appt.time+'\\n🏥 Local: '+sig.clinic+'\\n\\n';
+  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');}
+  else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.';}
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 function renderFinancialTable(){
@@ -876,8 +773,8 @@ function renderFinancialTable(){
     const patient=patients.find(p=>p.id===appt.patientId);
     const row=document.createElement('tr');
     row.innerHTML='<td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'✅ Pago':'⏳ Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
-    tbody.appendChild(row)
-  })
+    tbody.appendChild(row);
+  });
 }
 
 function renderPatientFinance(){
@@ -891,16 +788,16 @@ function renderPatientFinance(){
   patientAppts.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
     const row=document.createElement('tr');
     row.className='session-row'+(selectedSessions.has(appt.id)?' selected':'');
-    row.onclick=(e)=>{if(e.target.type!=='checkbox')toggleSessionSelection(appt.id)};
+    row.onclick=(e)=>{if(e.target.type!=='checkbox')toggleSessionSelection(appt.id);};
     row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\''+appt.id+'\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
-    tbody.appendChild(row)
-  })
+    tbody.appendChild(row);
+  });
 }
 
 function toggleSessionSelection(apptId){
   if(selectedSessions.has(apptId))selectedSessions.delete(apptId);
   else selectedSessions.add(apptId);
-  renderPatientFinance()
+  renderPatientFinance();
 }
 
 function toggleAllSessions(){
@@ -908,7 +805,7 @@ function toggleAllSessions(){
   const allSelected=patientAppts.every(a=>selectedSessions.has(a.id));
   patientAppts.forEach(a=>allSelected?selectedSessions.delete(a.id):selectedSessions.add(a.id));
   renderPatientFinance();
-  document.getElementById('selectAllSessions').checked=!allSelected
+  document.getElementById('selectAllSessions').checked=!allSelected;
 }
 
 function sendPendingSessionsWhatsApp(){
@@ -917,11 +814,11 @@ function sendPendingSessionsWhatsApp(){
   const sig=getProfessionalSignature();
   let total=0,sessionsList='';
   const selectedAppts=appointments.filter(a=>selectedSessions.has(a.id)).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  selectedAppts.forEach((appt,index)=>{total+=parseFloat(appt.value||0);sessionsList+=(index+1)+'. '+formatDate(appt.date)+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\n'});
-  let msg='Olá '+patient.name+', tudo bem? 😊\n\nSessões em aberto:\n\n'+sessionsList+'\n💰 *Total: R$ '+total.toFixed(2)+'*\n\n';
-  if(sig.pix)msg+='💳 Chave Pix:\n*'+sig.pix+'*\n\n';
-  msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\n\nAtenciosamente,\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
-  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank')
+  selectedAppts.forEach((appt,index)=>{total+=parseFloat(appt.value||0);sessionsList+=(index+1)+'. '+formatDate(appt.date)+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\\n';});
+  let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nSessões em aberto:\\n\\n'+sessionsList+'\\n💰 *Total: R$ '+total.toFixed(2)+'*\\n\\n';
+  if(sig.pix)msg+='💳 Chave Pix:\\n*'+sig.pix+'*\\n\\n';
+  msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 function updateFinancialSummary(){
@@ -930,7 +827,7 @@ function updateFinancialSummary(){
   const pending=activeAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
   document.getElementById('totalReceived').textContent='R$ '+received.toFixed(2);
   document.getElementById('totalPending').textContent='R$ '+pending.toFixed(2);
-  document.getElementById('totalSessions').textContent=activeAppts.length
+  document.getElementById('totalSessions').textContent=activeAppts.length;
 }
 
 function togglePayment(id){
@@ -940,7 +837,7 @@ function togglePayment(id){
   renderFinancialTable();
   updateFinancialSummary();
   renderCalendar();
-  if(currentPatientId)renderPatientFinance()
+  if(currentPatientId)renderPatientFinance();
 }
 
 function renderEvolutions(){
@@ -950,8 +847,8 @@ function renderEvolutions(){
     const div=document.createElement('div');
     div.style.cssText='background:#f8f9fa;padding:15px;margin-bottom:10px;border-radius:8px;border-left:4px solid #2a9d8f';
     div.innerHTML='<small style="color:#666">'+formatDate(evo.date)+' às '+evo.time+'</small><p style="margin-top:5px">'+evo.text+'</p>';
-    list.appendChild(div)
-  })
+    list.appendChild(div);
+  });
 }
 
 function addEvolution(){
@@ -961,7 +858,7 @@ function addEvolution(){
   evolutions.push({id:Date.now().toString(),patientId:currentPatientId,date:now.toISOString().split('T')[0],time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),text});
   saveUserData();
   document.getElementById('newEvolution').value='';
-  renderEvolutions()
+  renderEvolutions();
 }
 
 function generatePatientReport(){
@@ -973,86 +870,152 @@ function generatePatientReport(){
   const monthEvos=evolutions.filter(e=>e.patientId===currentPatientId&&e.date.startsWith(month)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const monthAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled&&a.date.startsWith(month));
   const monthName=new Date(year,mon-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  let report='RELATÓRIO MENSAL - '+sig.clinic.toUpperCase()+'\n'+(sig.name?sig.name+'\n':'')+(sig.crefito?sig.crefito+'\n':'')+'================================\n\nPaciente: '+patient.name+'\nPeríodo: '+monthName+'\n\n📋 RESUMO\nSessões: '+monthAppts.length+'\n\n';
-  if(monthAppts.length>0){report+='Datas:\n';monthAppts.forEach(a=>{report+='• '+formatDate(a.date)+' - '+a.time+'\n'});report+='\n'}
-  report+='📊 EVOLUÇÃO\n\n';
-  if(monthEvos.length===0)report+='Nenhuma evolução registrada.\n';
-  else monthEvos.forEach((evo,i)=>{report+='Sessão '+(i+1)+' - '+formatDate(evo.date)+'\n'+evo.text+'\n--------------------------------\n\n'});
-  report+='\n'+sig.clinic+(sig.name?'\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
+  let report='RELATÓRIO MENSAL - '+sig.clinic.toUpperCase()+'\\n'+(sig.name?sig.name+'\\n':'')+(sig.crefito?sig.crefito+'\\n':'')+'================================\\n\\nPaciente: '+patient.name+'\\nPeríodo: '+monthName+'\\n\\n📋 RESUMO\\nSessões: '+monthAppts.length+'\\n\\n';
+  if(monthAppts.length>0){report+='Datas:\\n';monthAppts.forEach(a=>{report+='• '+formatDate(a.date)+' - '+a.time+'\\n';});report+='\\n';}
+  report+='📊 EVOLUÇÃO\\n\\n';
+  if(monthEvos.length===0)report+='Nenhuma evolução registrada.\\n';
+  else monthEvos.forEach((evo,i)=>{report+='Sessão '+(i+1)+' - '+formatDate(evo.date)+'\\n'+evo.text+'\\n--------------------------------\\n\\n';});
+  report+='\\n'+sig.clinic+(sig.name?'\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
   currentReport=report;
   document.getElementById('reportContent').textContent=report;
-  document.getElementById('reportContainer').style.display='block'
+  document.getElementById('reportContainer').style.display='block';
 }
 
-function copyReport(){navigator.clipboard.writeText(currentReport).then(()=>alert('Copiado!'))}
-function sendReportWhatsApp(){const patient=patients.find(p=>p.id===currentPatientId);window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(currentReport),'_blank')}
+function copyReport(){
+  navigator.clipboard.writeText(currentReport).then(()=>alert('Relatório copiado!'));
+}
 
-function openExpenseModal(){document.getElementById('expenseDate').value=new Date().toISOString().split('T')[0];document.getElementById('expenseModal').classList.add('active')}
-function saveExpense(){
-  const data={id:Date.now().toString(),date:document.getElementById('expenseDate').value,description:document.getElementById('expenseDesc').value,category:document.getElementById('expenseCategory').value,value:parseFloat(document.getElementById('expenseValue').value)};
-  if(!data.date||!data.description||!data.value){alert('Preencha todos os campos!');return}
-  expenses.push(data);
-  saveUserData();
-  closeModal('expenseModal');
-  document.getElementById('expenseDesc').value='';
-  document.getElementById('expenseValue').value='';
-  renderCashFlow()
+function sendReportWhatsApp(){
+  const patient=patients.find(p=>p.id===currentPatientId);
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(currentReport),'_blank');
+}
+
+function loadPatientSelect(){
+  const select=document.getElementById('apptPatient');
+  select.innerHTML='<option value="">Selecione...</option>';
+  patients.sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.id;
+    opt.textContent=p.name;
+    select.appendChild(opt);
+  });
 }
 
 function showCashFlowTab(tab){
   document.querySelectorAll('#fluxo .tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('#fluxo .tab-content').forEach(t=>t.classList.remove('active'));
   event.target.classList.add('active');
-  document.getElementById('cf'+tab.charAt(0).toUpperCase()+tab.slice(1)+'Tab').classList.add('active')
+  document.getElementById('cf'+tab.charAt(0).toUpperCase()+tab.slice(1)+'Tab').classList.add('active');
 }
 
 function renderCashFlow(){
   const month=document.getElementById('cashFlowMonth').value;
   if(!month)return;
-  const[year,mon]=month.split('-').map(Number);
-  const entries=appointments.filter(a=>a.paid&&!a.cancelled&&a.date.startsWith(month));
-  const exits=expenses.filter(e=>e.date.startsWith(month));
+  const entries=appointments.filter(a=>!a.cancelled&&a.paid&&a.date.startsWith(month));
+  const monthExpenses=expenses.filter(e=>e.date.startsWith(month));
   const totalEntries=entries.reduce((s,a)=>s+parseFloat(a.value||0),0);
-  const totalExits=exits.reduce((s,e)=>s+parseFloat(e.value||0),0);
+  const totalExits=monthExpenses.reduce((s,e)=>s+parseFloat(e.value||0),0);
   document.getElementById('cfEntries').textContent='R$ '+totalEntries.toFixed(2);
   document.getElementById('cfExits').textContent='R$ '+totalExits.toFixed(2);
   document.getElementById('cfBalance').textContent='R$ '+(totalEntries-totalExits).toFixed(2);
   const entriesBody=document.getElementById('entriesTable');
   entriesBody.innerHTML='';
-  entries.forEach(a=>{const p=patients.find(x=>x.id===a.patientId);const row=document.createElement('tr');row.innerHTML='<td>'+formatDate(a.date)+'</td><td>'+(p?p.name:'-')+'</td><td>'+a.type+'</td><td>R$ '+parseFloat(a.value||0).toFixed(2)+'</td>';entriesBody.appendChild(row)});
+  entries.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
+    const patient=patients.find(p=>p.id===appt.patientId);
+    const row=document.createElement('tr');
+    row.innerHTML='<td>'+formatDate(appt.date)+'</td><td>'+(patient?patient.name:'-')+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td>';
+    entriesBody.appendChild(row);
+  });
   const exitsBody=document.getElementById('exitsTable');
   exitsBody.innerHTML='';
-  exits.forEach(e=>{const row=document.createElement('tr');row.innerHTML='<td>'+formatDate(e.date)+'</td><td>'+e.description+'</td><td>'+e.category+'</td><td>R$ '+parseFloat(e.value).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\''+e.id+'\')">Excluir</button></td>';exitsBody.appendChild(row)})
+  monthExpenses.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(exp=>{
+    const row=document.createElement('tr');
+    row.innerHTML='<td>'+formatDate(exp.date)+'</td><td>'+exp.description+'</td><td>'+exp.category+'</td><td>R$ '+parseFloat(exp.value||0).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\''+exp.id+'\')">🗑</button></td>';
+    exitsBody.appendChild(row);
+  });
+  if(!document.getElementById('cfEntriesTab').classList.contains('active')&&!document.getElementById('cfExitsTab').classList.contains('active')){
+    showCashFlowTab('entries');
+  }
 }
 
-function deleteExpense(id){if(!confirm('Excluir despesa?'))return;expenses=expenses.filter(e=>e.id!==id);saveUserData();renderCashFlow()}
+function deleteExpense(id){
+  if(!confirm('Excluir despesa?'))return;
+  expenses=expenses.filter(e=>e.id!==id);
+  saveUserData();
+  renderCashFlow();
+}
+
+function openExpenseModal(){
+  document.getElementById('expenseDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('expenseDesc').value='';
+  document.getElementById('expenseValue').value='';
+  document.getElementById('expenseModal').classList.add('active');
+}
+
+function saveExpense(){
+  const data={
+    id:Date.now().toString(),
+    date:document.getElementById('expenseDate').value,
+    description:document.getElementById('expenseDesc').value,
+    category:document.getElementById('expenseCategory').value,
+    value:document.getElementById('expenseValue').value
+  };
+  if(!data.date||!data.description||!data.value){alert('Preencha todos os campos!');return}
+  expenses.push(data);
+  saveUserData();
+  closeModal('expenseModal');
+  renderCashFlow();
+}
 
 function renderReports(){
   const month=document.getElementById('reportMonth').value;
   if(!month)return;
   const monthAppts=appointments.filter(a=>!a.cancelled&&a.date.startsWith(month));
-  const revenue=monthAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const totalRevenue=monthAppts.reduce((s,a)=>s+parseFloat(a.value||0),0);
   document.getElementById('reportSessions').textContent=monthAppts.length;
-  document.getElementById('reportRevenue').textContent='R$ '+revenue.toFixed(2);
-  const stats={};
-  monthAppts.forEach(a=>{if(!stats[a.patientId])stats[a.patientId]={count:0,total:0};stats[a.patientId].count++;if(a.paid)stats[a.patientId].total+=parseFloat(a.value||0)});
-  const tbody=document.getElementById('reportTable');
-  tbody.innerHTML='';
-  for(let pid in stats){const p=patients.find(x=>x.id===pid);const s=stats[pid];const row=document.createElement('tr');row.innerHTML='<td>'+(p?p.name:'-')+'</td><td>'+s.count+'</td><td>R$ '+s.total.toFixed(2)+'</td>';tbody.appendChild(row)}
+  document.getElementById('reportRevenue').textContent='R$ '+totalRevenue.toFixed(2);
+  const reportBody=document.getElementById('reportTable');
+  reportBody.innerHTML='';
+  const patientStats={};
+  monthAppts.forEach(appt=>{
+    if(!patientStats[appt.patientId]){patientStats[appt.patientId]={sessions:0,total:0};}
+    patientStats[appt.patientId].sessions++;
+    patientStats[appt.patientId].total+=parseFloat(appt.value||0);
+  });
+  Object.entries(patientStats).sort((a,b)=>b[1].sessions-a[1].sessions).forEach(([patientId,stats])=>{
+    const patient=patients.find(p=>p.id===patientId);
+    const row=document.createElement('tr');
+    row.innerHTML='<td>'+(patient?patient.name:'Paciente removido')+'</td><td>'+stats.sessions+'</td><td>R$ '+stats.total.toFixed(2)+'</td>';
+    reportBody.appendChild(row);
+  });
 }
 
-function formatDate(dateStr){if(!dateStr)return'';const parts=dateStr.split('-');return parts[2]+'/'+parts[1]+'/'+parts[0]}
-function loadPatientSelect(){const select=document.getElementById('apptPatient');select.innerHTML='<option value="">Selecione...</option>';patients.forEach(p=>{const opt=document.createElement('option');opt.value=p.id;opt.textContent=p.name;select.appendChild(opt)})}
-function closeModal(id){document.getElementById(id).classList.remove('active')}
-document.querySelectorAll('.modal').forEach(m=>{m.onclick=function(e){if(e.target===this)this.classList.remove('active')}});
+function closeModal(id){
+  document.getElementById(id).classList.remove('active');
+}
 
-// Formatar input do código automaticamente
-document.getElementById('activationCode').addEventListener('input', function(e) {
-  let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (value.length > 4 && value.charAt(4) !== '-') {
-    value = value.slice(0, 4) + '-' + value.slice(4);
+function formatDate(dateStr){
+  const parts=dateStr.split('-');
+  return parts[2]+'/'+parts[1]+'/'+parts[0];
+}
+
+// Fechar modal ao clicar fora
+document.addEventListener('click',function(e){
+  if(e.target.classList.contains('modal')){
+    e.target.classList.remove('active');
   }
-  e.target.value = value.slice(0, 9);
+});
+
+// Adicionar botão de nova despesa na aba Fluxo de Caixa
+document.addEventListener('DOMContentLoaded',function(){
+  const fluxoSection=document.getElementById('fluxo');
+  const tabs=fluxoSection.querySelector('.tabs');
+  const btnExpense=document.createElement('button');
+  btnExpense.className='btn btn-danger';
+  btnExpense.textContent='+ Despesa';
+  btnExpense.style.marginLeft='auto';
+  btnExpense.onclick=openExpenseModal;
+  tabs.appendChild(btnExpense);
 });
 </script>
 </body>
