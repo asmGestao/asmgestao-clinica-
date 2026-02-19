@@ -17,6 +17,7 @@ body{font-family:Arial,sans-serif;background:#f0f2f5}
 .login-box input{width:100%;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:16px}
 .login-btn{width:100%;padding:14px;background:#2a9d8f;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer}
 .login-error{color:#e76f51;margin-top:15px;display:none}
+.admin-badge{display:inline-block;background:#f4a261;color:white;padding:3px 10px;border-radius:12px;font-size:12px;margin-left:10px}
 .header{background:#264653;color:white;padding:15px;text-align:center}
 .user-bar{background:#1a3a47;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center}
 .user-bar button{background:rgba(255,255,255,0.2);border:none;color:white;padding:5px 15px;border-radius:5px;cursor:pointer}
@@ -61,11 +62,15 @@ th{background:#f8f9fa}
 .tab-content.active{display:block}
 .settings-box{background:#e8f4f8;padding:20px;border-radius:8px;margin-bottom:20px;border-left:4px solid #264653}
 .footer{text-align:center;padding:20px;background:#264653;color:white;margin-top:40px;font-size:12px}
+.user-card{background:#f8f9fa;padding:15px;margin-bottom:10px;border-radius:8px;border-left:4px solid #2a9d8f;display:flex;justify-content:space-between;align-items:center}
+.user-card.blocked{border-left-color:#e76f51;opacity:0.7}
 .session-checkbox{margin-right:10px;transform:scale(1.2)}
 .session-row{cursor:pointer}
 .session-row:hover{background:#f0f8ff}
 .session-row.selected{background:#e0f2f1}
 .report-box{background:#f8f9fa;padding:20px;border-radius:8px;white-space:pre-wrap;font-family:monospace;margin:20px 0;max-height:400px;overflow-y:auto}
+
+/* TELA DE ATIVAÇÃO */
 .activation-container{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,#264653 0%,#2a9d8f 100%)}
 .activation-box{background:white;padding:40px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.2);width:90%;max-width:400px;text-align:center}
 .activation-box h2{color:#264653;margin-bottom:15px}
@@ -121,7 +126,7 @@ th{background:#f8f9fa}
 </div>
 
 <div class="user-bar">
-<div>👤 <span id="currentUserName">Dra. Andresa Augusto</span></div>
+<div>👤 <span id="currentUserName"></span><span id="adminBadge" class="admin-badge" style="display:none">ADMIN</span></div>
 <div><button onclick="logout()">🚪 Sair</button></div>
 </div>
 
@@ -132,9 +137,27 @@ th{background:#f8f9fa}
 <button onclick="showSection('fluxo')">📊 Fluxo de Caixa</button>
 <button onclick="showSection('relatorios')">📈 Relatórios</button>
 <button onclick="showSection('configuracoes')">⚙️ Configurações</button>
+<button id="btnUsuarios" onclick="showSection('usuarios')" style="display:none">👤 Usuários</button>
 </div>
 
 <div class="container">
+<div id="usuarios" class="section">
+<h2>👤 Gerenciamento de Usuários</h2>
+<div class="settings-box">
+<h3>Novo Usuário</h3>
+<div class="form-group"><label>Nome do Profissional *</label><input type="text" id="newUserName" placeholder="Ex: Dra. Maria Silva"></div>
+<div class="form-group"><label>CREFITO *</label><input type="text" id="newUserCrefito" placeholder="Ex: 123456-F"></div>
+<div class="form-group"><label>Empresa (opcional)</label><input type="text" id="newUserClinic" placeholder="Ex: ASM Fisioterapia"></div>
+<div class="form-group"><label>Chave Pix *</label><input type="text" id="newUserPix" placeholder="Ex: CPF, CNPJ, e-mail ou telefone"></div>
+<div class="form-group"><label>Usuário (login) *</label><input type="text" id="newUserLogin" placeholder="Ex: maria.silva"></div>
+<div class="form-group"><label>Senha *</label><input type="password" id="newUserPass" placeholder="Mínimo 6 caracteres"></div>
+<div class="form-group"><label>Confirmar Senha *</label><input type="password" id="newUserPass2" placeholder="Digite a senha novamente"></div>
+<button class="btn btn-primary" onclick="createUser()">➕ Criar Usuário</button>
+</div>
+<h3>Usuários Cadastrados</h3>
+<div id="usersList"></div>
+</div>
+
 <div id="configuracoes" class="section">
 <h2>⚙️ Configurações</h2>
 <div class="settings-box">
@@ -313,7 +336,7 @@ th{background:#f8f9fa}
 
 <script>
 // ============================================
-// CONFIGURAÇÃO DO FIREBASE
+// CONFIGURAÇÃO DO FIREBASE - SUAS CREDENCIAIS
 // ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyDAP8Krf1QYRUf2VmgeGRXL6eoceVcDnp4",
@@ -325,15 +348,17 @@ const firebaseConfig = {
   appId: "1:846179775289:web:b914c4e024b1fb13a66ee8"
 };
 
+// Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // ============================================
-// LOGIN E ATIVAÇÃO
+// LOGIN FIXO E CÓDIGOS DE ATIVAÇÃO
 // ============================================
 const FIXED_USER = "ASM";
 const FIXED_PASS = "asm123";
 
+// 300 CÓDIGOS DE ATIVAÇÃO PRÉ-GERADOS
 const VALID_CODES = [
   "ASM1-0001", "ASM1-0002", "ASM1-0003", "ASM1-0004", "ASM1-0005",
   "ASM1-0006", "ASM1-0007", "ASM1-0008", "ASM1-0009", "ASM1-0010",
@@ -398,8 +423,11 @@ const VALID_CODES = [
 ];
 
 // ============================================
-// VARIÁVEIS DO SISTEMA
+// VARIÁVEIS DO SISTEMA (TODAS ORIGINAIS MANTIDAS)
 // ============================================
+let users=JSON.parse(localStorage.getItem('asm_users'))||{'admin':{name:'Administrador',password:'admin123',isAdmin:true,isBlocked:false,createdAt:new Date().toISOString(),crefito:'',clinic:'',pix:''}};
+let currentUser=null;
+let selectedSessions=new Set();
 let config={},patients=[],appointments=[],evolutions=[],expenses=[];
 let currentDate=new Date(),currentPatientId=null,currentApptId=null,currentReport='';
 
@@ -407,6 +435,9 @@ let currentDate=new Date(),currentPatientId=null,currentApptId=null,currentRepor
 // FUNÇÕES DE LOGIN E ATIVAÇÃO
 // ============================================
 
+function saveUsers(){localStorage.setItem('asm_users',JSON.stringify(users))}
+
+// Verificar estado ao carregar
 window.onload = function() {
   const isActivated = localStorage.getItem('asm_activated');
   const isLoggedIn = localStorage.getItem('asm_logged_in');
@@ -448,6 +479,14 @@ function showMainSystem() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('activationScreen').style.display = 'none';
   document.getElementById('mainSystem').style.display = 'block';
+  
+  // Inicializar sistema
+  currentUser = 'admin';
+  localStorage.setItem('asm_current_user', 'admin');
+  document.getElementById('currentUserName').textContent = users['admin'].name;
+  document.getElementById('adminBadge').style.display = 'inline-block';
+  document.getElementById('btnUsuarios').style.display = 'inline-block';
+  renderUsersList();
   loadUserData();
   initializeApp();
 }
@@ -509,27 +548,103 @@ function logout(){
   localStorage.removeItem('asm_logged_in');
   localStorage.removeItem('asm_activated');
   localStorage.removeItem('asm_activation_code');
+  localStorage.removeItem('asm_current_user');
   location.reload();
 }
 
 // ============================================
-// FUNÇÕES DO SISTEMA
+// TODAS AS FUNÇÕES ORIGINAIS DO SISTEMA (MANTIDAS)
 // ============================================
 
+function checkSession(){
+  const savedUser = localStorage.getItem('asm_current_user');
+  if(savedUser && users[savedUser] && !users[savedUser].isBlocked){
+    document.getElementById('loginUser').value = FIXED_USER;
+    document.getElementById('loginPass').focus();
+  }
+}
+
+function createUser(){
+  const name=document.getElementById('newUserName').value.trim();
+  const crefito=document.getElementById('newUserCrefito').value.trim();
+  const clinic=document.getElementById('newUserClinic').value.trim();
+  const pix=document.getElementById('newUserPix').value.trim();
+  const login=document.getElementById('newUserLogin').value.trim().toLowerCase();
+  const pass=document.getElementById('newUserPass').value;
+  const pass2=document.getElementById('newUserPass2').value;
+  if(!name||!crefito||!pix||!login||!pass){alert('Preencha todos os campos obrigatórios!');return}
+  if(pass.length<6){alert('Senha mínima de 6 caracteres!');return}
+  if(pass!==pass2){alert('Senhas não conferem!');return}
+  if(users[login]){alert('Usuário já existe!');return}
+  users[login]={name,password:pass,isAdmin:false,isBlocked:false,createdAt:new Date().toISOString(),crefito,clinic:clinic||'ASM Fisioterapia',pix};
+  saveUsers();
+  document.getElementById('newUserName').value='';
+  document.getElementById('newUserCrefito').value='';
+  document.getElementById('newUserClinic').value='';
+  document.getElementById('newUserPix').value='';
+  document.getElementById('newUserLogin').value='';
+  document.getElementById('newUserPass').value='';
+  document.getElementById('newUserPass2').value='';
+  renderUsersList();
+  alert('Usuário criado!\nLogin: '+login+'\nSenha: '+pass)
+}
+
+function renderUsersList(){
+  const container=document.getElementById('usersList');
+  container.innerHTML='';
+  for(let login in users){
+    const user=users[login];
+    const div=document.createElement('div');
+    div.className='user-card'+(user.isBlocked?' blocked':'');
+    let html='<div class="user-info"><h4>'+user.name+' '+(user.isAdmin?'<span class="admin-badge">ADMIN</span>':'')+'</h4>';
+    html+='<small>Login: '+login+' | CREFITO: '+(user.crefito||'-')+' | Pix: '+(user.pix||'-')+'</small></div>';
+    html+='<div>';
+    if(login!=='admin'){
+      html+='<button class="btn btn-warning" onclick="toggleBlockUser(\''+login+'\')">'+(user.isBlocked?'Desbloquear':'Bloquear')+'</button> ';
+      html+='<button class="btn btn-danger" onclick="deleteUser(\''+login+'\')">Excluir</button>'
+    }else{html+='<small>(Não alterável)</small>'}
+    html+='</div>';
+    div.innerHTML=html;
+    container.appendChild(div)
+  }
+}
+
+function toggleBlockUser(login){
+  if(!confirm('Tem certeza?'))return;
+  users[login].isBlocked=!users[login].isBlocked;
+  saveUsers();
+  renderUsersList()
+}
+
+function deleteUser(login){
+  if(!confirm('ATENÇÃO: Excluirá TODOS os dados deste usuário!\nTem certeza?'))return;
+  localStorage.removeItem('asm_patients_'+login);
+  localStorage.removeItem('asm_appointments_'+login);
+  localStorage.removeItem('asm_evolutions_'+login);
+  localStorage.removeItem('asm_expenses_'+login);
+  localStorage.removeItem('asm_config_'+login);
+  delete users[login];
+  saveUsers();
+  renderUsersList()
+}
+
 function loadUserData(){
-  config=JSON.parse(localStorage.getItem('asm_config'))||{professionalName:'Dra. Andresa Augusto',crefito:'409314-F',clinicName:'ASM Fisioterapia',pix:''};
-  patients=JSON.parse(localStorage.getItem('asm_patients'))||[];
-  appointments=JSON.parse(localStorage.getItem('asm_appointments'))||[];
-  evolutions=JSON.parse(localStorage.getItem('asm_evolutions'))||[];
-  expenses=JSON.parse(localStorage.getItem('asm_expenses'))||[]
+  const prefix='asm_'+currentUser+'_';
+  const userData=users[currentUser];
+  config=JSON.parse(localStorage.getItem(prefix+'config'))||{professionalName:userData.name,crefito:userData.crefito||'',clinicName:userData.clinic||'ASM Fisioterapia',pix:userData.pix||''};
+  patients=JSON.parse(localStorage.getItem(prefix+'patients'))||[];
+  appointments=JSON.parse(localStorage.getItem(prefix+'appointments'))||[];
+  evolutions=JSON.parse(localStorage.getItem(prefix+'evolutions'))||[];
+  expenses=JSON.parse(localStorage.getItem(prefix+'expenses'))||[]
 }
 
 function saveUserData(){
-  localStorage.setItem('asm_config',JSON.stringify(config));
-  localStorage.setItem('asm_patients',JSON.stringify(patients));
-  localStorage.setItem('asm_appointments',JSON.stringify(appointments));
-  localStorage.setItem('asm_evolutions',JSON.stringify(evolutions));
-  localStorage.setItem('asm_expenses',JSON.stringify(expenses))
+  const prefix='asm_'+currentUser+'_';
+  localStorage.setItem(prefix+'config',JSON.stringify(config));
+  localStorage.setItem(prefix+'patients',JSON.stringify(patients));
+  localStorage.setItem(prefix+'appointments',JSON.stringify(appointments));
+  localStorage.setItem(prefix+'evolutions',JSON.stringify(evolutions));
+  localStorage.setItem(prefix+'expenses',JSON.stringify(expenses))
 }
 
 function initializeApp(){
@@ -578,7 +693,8 @@ function showSection(section){
   event.target.classList.add('active');
   if(section==='financeiro')renderFinancialTable();
   if(section==='fluxo')renderCashFlow();
-  if(section==='relatorios')renderReports()
+  if(section==='relatorios')renderReports();
+  if(section==='usuarios')renderUsersList()
 }
 
 function renderCalendar(){
@@ -763,8 +879,6 @@ function renderFinancialTable(){
     tbody.appendChild(row)
   })
 }
-
-let selectedSessions=new Set();
 
 function renderPatientFinance(){
   const patientAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled);
