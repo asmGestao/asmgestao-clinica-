@@ -93,15 +93,15 @@ th{background:#f8f9fa}
 <h2>Login do Profissional</h2>
 <div class="form-group">
 <label>Usuário</label>
-<input type="text" id="loginUser" value="ASM" readonly style="background:#f0f0f0">
+<input type="text" id="loginUser" placeholder="Digite o usuário">
 </div>
 <div class="form-group">
 <label>Senha</label>
 <input type="password" id="loginPass" placeholder="Digite a senha">
 </div>
 <button class="login-btn" onclick="doLogin()">Entrar</button>
-<div id="loginError" class="login-error">Senha incorreta!</div>
-<p style="margin-top:15px;font-size:12px;color:#999">Senha padrão: asm123</p>
+<div id="loginError" class="login-error">Usuário ou senha incorretos!</div>
+<p style="margin-top:15px;font-size:12px;color:#999">Padrão: ASM / asm123</p>
 </div>
 </div>
 
@@ -358,7 +358,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // ============================================
-// LOGIN E ATIVAÇÃO
+// LOGIN E ATIVAÇÃO - USUÁRIO ÚNICO
 // ============================================
 const FIXED_USER = "ASM";
 const FIXED_PASS = "asm123";
@@ -454,11 +454,12 @@ function doLogin(){
   const password = document.getElementById('loginPass').value;
   
   if (user !== FIXED_USER || password !== FIXED_PASS) {
-    showLoginError('Senha incorreta!');
+    showLoginError('Usuário ou senha incorretos!');
     return;
   }
   
   localStorage.setItem('asm_logged_in', 'true');
+  localStorage.setItem('asm_username', user);
   showActivation();
 }
 
@@ -479,6 +480,9 @@ function showMainSystem() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('activationScreen').style.display = 'none';
   document.getElementById('mainSystem').style.display = 'block';
+  
+  const savedUser = localStorage.getItem('asm_username') || 'Profissional';
+  document.getElementById('currentUserName').textContent = savedUser;
   
   loadUserData();
   initializeApp();
@@ -512,7 +516,7 @@ async function activateCode() {
     } else if (VALID_CODES.includes(code)) {
       await database.ref('used_codes/' + code).set({
         used_at: new Date().toISOString(),
-        used_by: 'ASM'
+        used_by: localStorage.getItem('asm_username') || 'ASM'
       });
       
       localStorage.setItem('asm_activated', 'true');
@@ -541,6 +545,7 @@ function logout(){
   localStorage.removeItem('asm_logged_in');
   localStorage.removeItem('asm_activated');
   localStorage.removeItem('asm_activation_code');
+  localStorage.removeItem('asm_username');
   location.reload();
 }
 
@@ -629,11 +634,10 @@ function renderFinancialTable(){
     row.onclick=(e)=>{
       if(e.target.type!=='checkbox')toggleFinancialSelection(appt.id);
     };
-    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedFinancial.has(appt.id)?'checked':'')+' onchange="toggleFinancialSelection(\\''+appt.id+'\\')"></td><td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>⏳ Pendente</td><td><button class="btn btn-primary" onclick="event.stopPropagation();togglePayment(\\''+appt.id+'\\')">Pagar</button></td>';
+    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedFinancial.has(appt.id)?'checked':'')+' onchange="toggleFinancialSelection(\''+appt.id+'\')"></td><td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>⏳ Pendente</td><td><button class="btn btn-primary" onclick="event.stopPropagation();togglePayment(\''+appt.id+'\')">Pagar</button></td>';
     tbody.appendChild(row);
   });
   
-  // Atualizar contador e visibilidade do botão
   const count = selectedFinancial.size;
   document.getElementById('selectedCount').textContent = count;
   document.getElementById('btnCobrarSelecionados').style.display = count > 0 ? 'inline-block' : 'none';
@@ -668,7 +672,6 @@ function clearSelection(){
 function sendSelectedPendingWhatsApp(){
   if(selectedFinancial.size===0){alert('Selecione pelo menos um atendimento!');return}
   
-  // Agrupar por paciente
   const byPatient = {};
   let totalGeral = 0;
   
@@ -685,39 +688,37 @@ function sendSelectedPendingWhatsApp(){
   
   const sig=getProfessionalSignature();
   
-  // Se só um paciente selecionado, envia mensagem direta
   if(Object.keys(byPatient).length === 1){
     const pid = Object.keys(byPatient)[0];
     const data = byPatient[pid];
-    let msg='Olá '+data.patient.name+', tudo bem? 😊\\n\\n';
-    msg+='Gostaria de lembrar que você possui os seguintes atendimentos em aberto:\\n\\n';
+    let msg='Olá '+data.patient.name+', tudo bem? 😊\n\n';
+    msg+='Gostaria de lembrar que você possui os seguintes atendimentos em aberto:\n\n';
     data.appts.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach((appt,idx)=>{
-      msg+=(idx+1)+'. '+formatDate(appt.date)+' - '+appt.type+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\\n';
+      msg+=(idx+1)+'. '+formatDate(appt.date)+' - '+appt.type+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\n';
     });
-    msg+='\\n💰 *Total: R$ '+data.total.toFixed(2)+'*\\n\\n';
-    if(sig.pix)msg+='💳 Chave Pix para pagamento:\\n*'+sig.pix+'*\\n\\n';
-    msg+='Agradeço a atenção! Qualquer dúvida, estou à disposição.'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
-    window.open('https://wa.me/55'+data.patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+    msg+='\n💰 *Total: R$ '+data.total.toFixed(2)+'*\n\n';
+    if(sig.pix)msg+='💳 Chave Pix para pagamento:\n*'+sig.pix+'*\n\n';
+    msg+='Agradeço a atenção! Qualquer dúvida, estou à disposição.'+(sig.name?'\n\nAtenciosamente,\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
+    window.open('https://wa.me/55'+data.patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
   } else {
-    // Múltiplos pacientes - pergunta qual enviar primeiro
-    let msgConfirm = 'Você selecionou atendimentos de '+Object.keys(byPatient).length+' pacientes diferentes:\\n\\n';
+    let msgConfirm = 'Você selecionou atendimentos de '+Object.keys(byPatient).length+' pacientes diferentes:\n\n';
     Object.values(byPatient).forEach((data,idx)=>{
-      msgConfirm+=(idx+1)+'. '+data.patient.name+' - R$ '+data.total.toFixed(2)+'\\n';
+      msgConfirm+=(idx+1)+'. '+data.patient.name+' - R$ '+data.total.toFixed(2)+'\n';
     });
-    msgConfirm+='\\nDeseja enviar mensagem para todos? Será aberta uma janela para cada paciente.';
+    msgConfirm+='\nDeseja enviar mensagem para todos? Será aberta uma janela para cada paciente.';
     
     if(confirm(msgConfirm)){
       Object.values(byPatient).forEach(data=>{
-        let msg='Olá '+data.patient.name+', tudo bem? 😊\\n\\n';
-        msg+='Gostaria de lembrar que você possui os seguintes atendimentos em aberto:\\n\\n';
+        let msg='Olá '+data.patient.name+', tudo bem? 😊\n\n';
+        msg+='Gostaria de lembrar que você possui os seguintes atendimentos em aberto:\n\n';
         data.appts.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach((appt,idx)=>{
-          msg+=(idx+1)+'. '+formatDate(appt.date)+' - '+appt.type+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\\n';
+          msg+=(idx+1)+'. '+formatDate(appt.date)+' - '+appt.type+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\n';
         });
-        msg+='\\n💰 *Total: R$ '+data.total.toFixed(2)+'*\\n\\n';
-        if(sig.pix)msg+='💳 Chave Pix para pagamento:\\n*'+sig.pix+'*\\n\\n';
-        msg+='Agradeço a atenção! Qualquer dúvida, estou à disposição.'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
+        msg+='\n💰 *Total: R$ '+data.total.toFixed(2)+'*\n\n';
+        if(sig.pix)msg+='💳 Chave Pix para pagamento:\n*'+sig.pix+'*\n\n';
+        msg+='Agradeço a atenção! Qualquer dúvida, estou à disposição.'+(sig.name?'\n\nAtenciosamente,\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
         setTimeout(()=>{
-          window.open('https://wa.me/55'+data.patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+          window.open('https://wa.me/55'+data.patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
         }, 500);
       });
     }
@@ -769,7 +770,7 @@ function renderCalendar(){
       apptDiv.className='appointment'+(appt.cancelled?' cancelled':'');
       apptDiv.innerHTML='<span>'+appt.time+' '+(patient?patient.name.split(' ')[0]:'')+'</span>';
       const actions=document.createElement('div');
-      actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\\''+appt.id+'\\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\\''+appt.id+'\\')">'+(appt.cancelled?'↩':'✕')+'</button>';
+      actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\''+appt.id+'\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\''+appt.id+'\')">'+(appt.cancelled?'↩':'✕')+'</button>';
       apptDiv.appendChild(actions);
       div.appendChild(apptDiv);
     });
@@ -830,10 +831,10 @@ function sendAppointmentWhatsApp(){
   const appt=appointments.find(a=>a.id===currentApptId);
   const patient=patients.find(p=>p.id===appt.patientId);
   const sig=getProfessionalSignature();
-  let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nConfirmação de agendamento:\\n\\n📅 Data: '+formatDate(appt.date)+'\\n⏰ Horário: '+appt.time+'\\n🏥 Local: '+sig.clinic+'\\n\\n';
-  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');}
+  let msg='Olá '+patient.name+', tudo bem? 😊\n\nConfirmação de agendamento:\n\n📅 Data: '+formatDate(appt.date)+'\n⏰ Horário: '+appt.time+'\n🏥 Local: '+sig.clinic+'\n\n';
+  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');}
   else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.';}
-  window.open('https://wa.me/55'+patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 function loadPatientSelect(){
@@ -946,7 +947,7 @@ function renderPatientFinance(){
     const row=document.createElement('tr');
     row.className='session-row'+(selectedSessions.has(appt.id)?' selected':'');
     row.onclick=(e)=>{if(e.target.type!=='checkbox')toggleSessionSelection(appt.id);};
-    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\\''+appt.id+'\\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\\''+appt.id+'\\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
+    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\''+appt.id+'\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
     tbody.appendChild(row);
   });
 }
@@ -971,11 +972,11 @@ function sendPendingSessionsWhatsApp(){
   const sig=getProfessionalSignature();
   let total=0,sessionsList='';
   const selectedAppts=appointments.filter(a=>selectedSessions.has(a.id)).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  selectedAppts.forEach((appt,index)=>{total+=parseFloat(appt.value||0);sessionsList+=(index+1)+'. '+formatDate(appt.date)+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\\n';});
-  let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nSessões em aberto:\\n\\n'+sessionsList+'\\n💰 *Total: R$ '+total.toFixed(2)+'*\\n\\n';
-  if(sig.pix)msg+='💳 Chave Pix:\\n*'+sig.pix+'*\\n\\n';
-  msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
-  window.open('https://wa.me/55'+patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+  selectedAppts.forEach((appt,index)=>{total+=parseFloat(appt.value||0);sessionsList+=(index+1)+'. '+formatDate(appt.date)+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\n';});
+  let msg='Olá '+patient.name+', tudo bem? 😊\n\nSessões em aberto:\n\n'+sessionsList+'\n💰 *Total: R$ '+total.toFixed(2)+'*\n\n';
+  if(sig.pix)msg+='💳 Chave Pix:\n*'+sig.pix+'*\n\n';
+  msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\n\nAtenciosamente,\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 function renderEvolutions(){
@@ -1008,12 +1009,12 @@ function generatePatientReport(){
   const monthEvos=evolutions.filter(e=>e.patientId===currentPatientId&&e.date.startsWith(month)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const monthAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled&&a.date.startsWith(month));
   const monthName=new Date(year,mon-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-  let report='RELATÓRIO MENSAL - '+sig.clinic.toUpperCase()+'\\n'+(sig.name?sig.name+'\\n':'')+(sig.crefito?sig.crefito+'\\n':'')+'================================\\n\\nPaciente: '+patient.name+'\\nPeríodo: '+monthName+'\\n\\n📋 RESUMO\\nSessões: '+monthAppts.length+'\\n\\n';
-  if(monthAppts.length>0){report+='Datas:\\n';monthAppts.forEach(a=>{report+='• '+formatDate(a.date)+' - '+a.time+'\\n';});report+='\\n';}
-  report+='📊 EVOLUÇÃO\\n\\n';
-  if(monthEvos.length===0)report+='Nenhuma evolução registrada.\\n';
-  else monthEvos.forEach((evo,i)=>{report+='Sessão '+(i+1)+' - '+formatDate(evo.date)+'\\n'+evo.text+'\\n--------------------------------\\n\\n';});
-  report+='\\n'+sig.clinic+(sig.name?'\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
+  let report='RELATÓRIO MENSAL - '+sig.clinic.toUpperCase()+'\n'+(sig.name?sig.name+'\n':'')+(sig.crefito?sig.crefito+'\n':'')+'================================\n\nPaciente: '+patient.name+'\nPeríodo: '+monthName+'\n\n📋 RESUMO\nSessões: '+monthAppts.length+'\n\n';
+  if(monthAppts.length>0){report+='Datas:\n';monthAppts.forEach(a=>{report+='• '+formatDate(a.date)+' - '+a.time+'\n';});report+='\n';}
+  report+='📊 EVOLUÇÃO\n\n';
+  if(monthEvos.length===0)report+='Nenhuma evolução registrada.\n';
+  else monthEvos.forEach((evo,i)=>{report+='Sessão '+(i+1)+' - '+formatDate(evo.date)+'\n'+evo.text+'\n--------------------------------\n\n';});
+  report+='\n'+sig.clinic+(sig.name?'\n'+sig.name:'')+(sig.crefito?'\n'+sig.crefito:'');
   currentReport=report;
   document.getElementById('reportContent').textContent=report;
   document.getElementById('reportContainer').style.display='block';
@@ -1025,7 +1026,7 @@ function copyReport(){
 
 function sendReportWhatsApp(){
   const patient=patients.find(p=>p.id===currentPatientId);
-  window.open('https://wa.me/55'+patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(currentReport),'_blank');
+  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(currentReport),'_blank');
 }
 
 // ============================================
@@ -1061,7 +1062,7 @@ function renderCashFlow(){
   exitsBody.innerHTML='';
   monthExpenses.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(exp=>{
     const row=document.createElement('tr');
-    row.innerHTML='<td>'+formatDate(exp.date)+'</td><td>'+exp.description+'</td><td>'+exp.category+'</td><td>R$ '+parseFloat(exp.value||0).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\\''+exp.id+'\\')">🗑</button></td>';
+    row.innerHTML='<td>'+formatDate(exp.date)+'</td><td>'+exp.description+'</td><td>'+exp.category+'</td><td>R$ '+parseFloat(exp.value||0).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\''+exp.id+'\')">🗑</button></td>';
     exitsBody.appendChild(row);
   });
   if(!document.getElementById('cfEntriesTab').classList.contains('active')&&!document.getElementById('cfExitsTab').classList.contains('active')){
