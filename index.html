@@ -68,6 +68,9 @@ th{background:#f8f9fa}
 .session-row:hover{background:#f0f8ff}
 .session-row.selected{background:#e0f2f1}
 .report-box{background:#f8f9fa;padding:20px;border-radius:8px;white-space:pre-wrap;font-family:monospace;margin:20px 0;max-height:400px;overflow-y:auto}
+.financial-row{cursor:pointer}
+.financial-row:hover{background:#f0f8ff}
+.financial-row.selected{background:#e0f2f1}
 
 /* TELA DE ATIVAÇÃO */
 .activation-container{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,#264653 0%,#2a9d8f 100%)}
@@ -181,8 +184,25 @@ th{background:#f8f9fa}
 <div class="summary-card red"><h3 id="totalPending">R$ 0,00</h3><p>A Receber</p></div>
 <div class="summary-card blue"><h3 id="totalSessions">0</h3><p>Sessões</p></div>
 </div>
+<div style="margin-bottom:15px">
+<button class="btn btn-whatsapp" onclick="sendSelectedPendingWhatsApp()" id="btnCobrarSelecionados" style="display:none">
+📱 Cobrar Selecionados (<span id="selectedCount">0</span>)
+</button>
+<button class="btn btn-primary" onclick="selectAllPending()">Selecionar Todos Pendentes</button>
+<button class="btn btn-warning" onclick="clearSelection()">Limpar Seleção</button>
+</div>
 <table>
-<thead><tr><th>Paciente</th><th>Data</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+<thead>
+<tr>
+<th><input type="checkbox" id="selectAllFinancial" onchange="toggleAllFinancial()"></th>
+<th>Paciente</th>
+<th>Data</th>
+<th>Serviço</th>
+<th>Valor</th>
+<th>Status</th>
+<th>Ações</th>
+</tr>
+</thead>
 <tbody id="financialTable"></tbody>
 </table>
 </div>
@@ -214,7 +234,7 @@ th{background:#f8f9fa}
 <div class="summary-card blue"><h3 id="reportSessions">0</h3><p>Atendimentos</p></div>
 <div class="summary-card green"><h3 id="reportRevenue">R$ 0,00</h3><p>Faturamento</p></div>
 </div>
-<table><thead><tr><th>Paciente</th><th>Sessões</th><p>Total</th></tr></thead>
+<table><thead><tr><th>Paciente</th><th>Sessões</th><th>Total</th></tr></thead>
 <tbody id="reportTable"></tbody>
 </table>
 </div>
@@ -322,7 +342,7 @@ th{background:#f8f9fa}
 
 <script>
 // ============================================
-// CONFIGURAÇÃO DO FIREBASE - SUAS CREDENCIAIS
+// CONFIGURAÇÃO DO FIREBASE
 // ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyDAP8Krf1QYRUf2VmgeGRXL6eoceVcDnp4",
@@ -334,17 +354,15 @@ const firebaseConfig = {
   appId: "1:846179775289:web:b914c4e024b1fb13a66ee8"
 };
 
-// Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // ============================================
-// LOGIN FIXO E CÓDIGOS DE ATIVAÇÃO
+// LOGIN E ATIVAÇÃO
 // ============================================
 const FIXED_USER = "ASM";
 const FIXED_PASS = "asm123";
 
-// 300 CÓDIGOS DE ATIVAÇÃO PRÉ-GERADOS
 const VALID_CODES = [
   "ASM1-0001", "ASM1-0002", "ASM1-0003", "ASM1-0004", "ASM1-0005",
   "ASM1-0006", "ASM1-0007", "ASM1-0008", "ASM1-0009", "ASM1-0010",
@@ -414,9 +432,10 @@ const VALID_CODES = [
 let config={},patients=[],appointments=[],evolutions=[],expenses=[];
 let currentDate=new Date(),currentPatientId=null,currentApptId=null,currentReport='';
 let selectedSessions=new Set();
+let selectedFinancial=new Set();
 
 // ============================================
-// FUNÇÕES DE LOGIN E ATIVAÇÃO
+// LOGIN E ATIVAÇÃO
 // ============================================
 
 window.onload = function() {
@@ -589,10 +608,144 @@ function showSection(section){
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(section).classList.add('active');
   event.target.classList.add('active');
-  if(section==='financeiro')renderFinancialTable();
+  if(section==='financeiro'){selectedFinancial.clear();renderFinancialTable();}
   if(section==='fluxo')renderCashFlow();
   if(section==='relatorios')renderReports();
 }
+
+// ============================================
+// FINANCEIRO - SELEÇÃO MÚLTIPLA
+// ============================================
+
+function renderFinancialTable(){
+  const tbody=document.getElementById('financialTable');
+  tbody.innerHTML='';
+  const pendingAppts = appointments.filter(a=>!a.cancelled && !a.paid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  
+  pendingAppts.forEach(appt=>{
+    const patient=patients.find(p=>p.id===appt.patientId);
+    const row=document.createElement('tr');
+    row.className='financial-row'+(selectedFinancial.has(appt.id)?' selected':'');
+    row.onclick=(e)=>{
+      if(e.target.type!=='checkbox')toggleFinancialSelection(appt.id);
+    };
+    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedFinancial.has(appt.id)?'checked':'')+' onchange="toggleFinancialSelection(\\''+appt.id+'\\')"></td><td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>⏳ Pendente</td><td><button class="btn btn-primary" onclick="event.stopPropagation();togglePayment(\\''+appt.id+'\\')">Pagar</button></td>';
+    tbody.appendChild(row);
+  });
+  
+  // Atualizar contador e visibilidade do botão
+  const count = selectedFinancial.size;
+  document.getElementById('selectedCount').textContent = count;
+  document.getElementById('btnCobrarSelecionados').style.display = count > 0 ? 'inline-block' : 'none';
+}
+
+function toggleFinancialSelection(apptId){
+  if(selectedFinancial.has(apptId))selectedFinancial.delete(apptId);
+  else selectedFinancial.add(apptId);
+  renderFinancialTable();
+}
+
+function toggleAllFinancial(){
+  const pendingAppts = appointments.filter(a=>!a.cancelled && !a.paid);
+  const allSelected = pendingAppts.every(a=>selectedFinancial.has(a.id));
+  pendingAppts.forEach(a=>allSelected?selectedFinancial.delete(a.id):selectedFinancial.add(a.id));
+  renderFinancialTable();
+  document.getElementById('selectAllFinancial').checked = !allSelected;
+}
+
+function selectAllPending(){
+  const pendingAppts = appointments.filter(a=>!a.cancelled && !a.paid);
+  pendingAppts.forEach(a=>selectedFinancial.add(a.id));
+  renderFinancialTable();
+}
+
+function clearSelection(){
+  selectedFinancial.clear();
+  renderFinancialTable();
+  document.getElementById('selectAllFinancial').checked = false;
+}
+
+function sendSelectedPendingWhatsApp(){
+  if(selectedFinancial.size===0){alert('Selecione pelo menos um atendimento!');return}
+  
+  // Agrupar por paciente
+  const byPatient = {};
+  let totalGeral = 0;
+  
+  selectedFinancial.forEach(apptId=>{
+    const appt = appointments.find(a=>a.id===apptId);
+    const patient = patients.find(p=>p.id===appt.patientId);
+    if(!byPatient[appt.patientId]){
+      byPatient[appt.patientId] = {patient: patient, appts: [], total: 0};
+    }
+    byPatient[appt.patientId].appts.push(appt);
+    byPatient[appt.patientId].total += parseFloat(appt.value||0);
+    totalGeral += parseFloat(appt.value||0);
+  });
+  
+  const sig=getProfessionalSignature();
+  
+  // Se só um paciente selecionado, envia mensagem direta
+  if(Object.keys(byPatient).length === 1){
+    const pid = Object.keys(byPatient)[0];
+    const data = byPatient[pid];
+    let msg='Olá '+data.patient.name+', tudo bem? 😊\\n\\n';
+    msg+='Gostaria de lembrar que você possui os seguintes atendimentos em aberto:\\n\\n';
+    data.appts.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach((appt,idx)=>{
+      msg+=(idx+1)+'. '+formatDate(appt.date)+' - '+appt.type+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\\n';
+    });
+    msg+='\\n💰 *Total: R$ '+data.total.toFixed(2)+'*\\n\\n';
+    if(sig.pix)msg+='💳 Chave Pix para pagamento:\\n*'+sig.pix+'*\\n\\n';
+    msg+='Agradeço a atenção! Qualquer dúvida, estou à disposição.'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
+    window.open('https://wa.me/55'+data.patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+  } else {
+    // Múltiplos pacientes - pergunta qual enviar primeiro
+    let msgConfirm = 'Você selecionou atendimentos de '+Object.keys(byPatient).length+' pacientes diferentes:\\n\\n';
+    Object.values(byPatient).forEach((data,idx)=>{
+      msgConfirm+=(idx+1)+'. '+data.patient.name+' - R$ '+data.total.toFixed(2)+'\\n';
+    });
+    msgConfirm+='\\nDeseja enviar mensagem para todos? Será aberta uma janela para cada paciente.';
+    
+    if(confirm(msgConfirm)){
+      Object.values(byPatient).forEach(data=>{
+        let msg='Olá '+data.patient.name+', tudo bem? 😊\\n\\n';
+        msg+='Gostaria de lembrar que você possui os seguintes atendimentos em aberto:\\n\\n';
+        data.appts.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach((appt,idx)=>{
+          msg+=(idx+1)+'. '+formatDate(appt.date)+' - '+appt.type+' - R$ '+parseFloat(appt.value||0).toFixed(2)+'\\n';
+        });
+        msg+='\\n💰 *Total: R$ '+data.total.toFixed(2)+'*\\n\\n';
+        if(sig.pix)msg+='💳 Chave Pix para pagamento:\\n*'+sig.pix+'*\\n\\n';
+        msg+='Agradeço a atenção! Qualquer dúvida, estou à disposição.'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
+        setTimeout(()=>{
+          window.open('https://wa.me/55'+data.patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+        }, 500);
+      });
+    }
+  }
+}
+
+function togglePayment(id){
+  const appt=appointments.find(a=>a.id===id);
+  appt.paid=!appt.paid;
+  saveUserData();
+  renderFinancialTable();
+  updateFinancialSummary();
+  renderCalendar();
+  if(currentPatientId)renderPatientFinance();
+}
+
+function updateFinancialSummary(){
+  const activeAppts=appointments.filter(a=>!a.cancelled);
+  const received=activeAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const pending=activeAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
+  document.getElementById('totalReceived').textContent='R$ '+received.toFixed(2);
+  document.getElementById('totalPending').textContent='R$ '+pending.toFixed(2);
+  document.getElementById('totalSessions').textContent=activeAppts.length;
+}
+
+// ============================================
+// AGENDA
+// ============================================
 
 function renderCalendar(){
   const year=currentDate.getFullYear(),month=currentDate.getMonth();
@@ -616,7 +769,7 @@ function renderCalendar(){
       apptDiv.className='appointment'+(appt.cancelled?' cancelled':'');
       apptDiv.innerHTML='<span>'+appt.time+' '+(patient?patient.name.split(' ')[0]:'')+'</span>';
       const actions=document.createElement('div');
-      actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\''+appt.id+'\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\''+appt.id+'\')">'+(appt.cancelled?'↩':'✕')+'</button>';
+      actions.innerHTML='<button onclick="event.stopPropagation();editAppointment(\\''+appt.id+'\\')">✎</button> <button onclick="event.stopPropagation();toggleCancelAppointmentDirect(\\''+appt.id+'\\')">'+(appt.cancelled?'↩':'✕')+'</button>';
       apptDiv.appendChild(actions);
       div.appendChild(apptDiv);
     });
@@ -626,6 +779,77 @@ function renderCalendar(){
 }
 
 function changeMonth(delta){currentDate.setMonth(currentDate.getMonth()+delta);renderCalendar();}
+
+function openAppointmentModal(year,month,day){
+  currentApptId=null;
+  document.getElementById('apptPatient').value='';
+  document.getElementById('apptTime').value='';
+  document.getElementById('apptValue').value='';
+  document.getElementById('apptNotes').value='';
+  document.getElementById('btnWhatsAppt').style.display='none';
+  document.getElementById('btnToggleCancel').style.display='none';
+  if(year!==undefined)document.getElementById('apptDate').value=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  else document.getElementById('apptDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('appointmentModal').classList.add('active');
+}
+
+function editAppointment(id){
+  const appt=appointments.find(a=>a.id===id);
+  currentApptId=id;
+  document.getElementById('apptPatient').value=appt.patientId;
+  document.getElementById('apptDate').value=appt.date;
+  document.getElementById('apptTime').value=appt.time;
+  document.getElementById('apptType').value=appt.type;
+  document.getElementById('apptValue').value=appt.value;
+  document.getElementById('apptNotes').value=appt.notes||'';
+  document.getElementById('btnWhatsAppt').style.display='inline-block';
+  document.getElementById('btnToggleCancel').style.display='inline-block';
+  const btnCancel=document.getElementById('btnToggleCancel');
+  if(appt.cancelled){btnCancel.textContent='↩ Reativar';btnCancel.className='btn btn-success';}
+  else{btnCancel.textContent='❌ Cancelar';btnCancel.className='btn btn-warning';}
+  document.getElementById('appointmentModal').classList.add('active');
+}
+
+function saveAppointment(){
+  const patientId=document.getElementById('apptPatient').value;
+  if(!patientId){alert('Selecione um paciente!');return}
+  const patient=patients.find(p=>p.id===patientId);
+  const data={id:currentApptId||Date.now().toString(),patientId,date:document.getElementById('apptDate').value,time:document.getElementById('apptTime').value,type:document.getElementById('apptType').value,value:document.getElementById('apptValue').value||patient.defaultValue||0,notes:document.getElementById('apptNotes').value,paid:currentApptId?appointments.find(a=>a.id===currentApptId).paid:false,cancelled:currentApptId?appointments.find(a=>a.id===currentApptId).cancelled:false};
+  if(currentApptId){const idx=appointments.findIndex(a=>a.id===currentApptId);appointments[idx]=data;}else{appointments.push(data);}
+  saveUserData();
+  closeModal('appointmentModal');
+  renderCalendar();
+  updateFinancialSummary();
+}
+
+function toggleCancelAppointment(){if(!currentApptId)return;toggleCancelAppointmentDirect(currentApptId);closeModal('appointmentModal');}
+function toggleCancelAppointmentDirect(id){const appt=appointments.find(a=>a.id===id);appt.cancelled=!appt.cancelled;saveUserData();renderCalendar();updateFinancialSummary();}
+
+function sendAppointmentWhatsApp(){
+  if(!currentApptId)return;
+  const appt=appointments.find(a=>a.id===currentApptId);
+  const patient=patients.find(p=>p.id===appt.patientId);
+  const sig=getProfessionalSignature();
+  let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nConfirmação de agendamento:\\n\\n📅 Data: '+formatDate(appt.date)+'\\n⏰ Horário: '+appt.time+'\\n🏥 Local: '+sig.clinic+'\\n\\n';
+  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');}
+  else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.';}
+  window.open('https://wa.me/55'+patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function loadPatientSelect(){
+  const select=document.getElementById('apptPatient');
+  select.innerHTML='<option value="">Selecione...</option>';
+  patients.sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.id;
+    opt.textContent=p.name;
+    select.appendChild(opt);
+  });
+}
+
+// ============================================
+// PACIENTES
+// ============================================
 
 function renderPatients(){
   const list=document.getElementById('patientsList');
@@ -710,73 +934,6 @@ function showPatientTab(tab){
   if(tab==='evolucao')renderEvolutions();
 }
 
-function openAppointmentModal(year,month,day){
-  currentApptId=null;
-  document.getElementById('apptPatient').value='';
-  document.getElementById('apptTime').value='';
-  document.getElementById('apptValue').value='';
-  document.getElementById('apptNotes').value='';
-  document.getElementById('btnWhatsAppt').style.display='none';
-  document.getElementById('btnToggleCancel').style.display='none';
-  if(year!==undefined)document.getElementById('apptDate').value=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-  else document.getElementById('apptDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('appointmentModal').classList.add('active');
-}
-
-function editAppointment(id){
-  const appt=appointments.find(a=>a.id===id);
-  currentApptId=id;
-  document.getElementById('apptPatient').value=appt.patientId;
-  document.getElementById('apptDate').value=appt.date;
-  document.getElementById('apptTime').value=appt.time;
-  document.getElementById('apptType').value=appt.type;
-  document.getElementById('apptValue').value=appt.value;
-  document.getElementById('apptNotes').value=appt.notes||'';
-  document.getElementById('btnWhatsAppt').style.display='inline-block';
-  document.getElementById('btnToggleCancel').style.display='inline-block';
-  const btnCancel=document.getElementById('btnToggleCancel');
-  if(appt.cancelled){btnCancel.textContent='↩ Reativar';btnCancel.className='btn btn-success';}
-  else{btnCancel.textContent='❌ Cancelar';btnCancel.className='btn btn-warning';}
-  document.getElementById('appointmentModal').classList.add('active');
-}
-
-function saveAppointment(){
-  const patientId=document.getElementById('apptPatient').value;
-  if(!patientId){alert('Selecione um paciente!');return}
-  const patient=patients.find(p=>p.id===patientId);
-  const data={id:currentApptId||Date.now().toString(),patientId,date:document.getElementById('apptDate').value,time:document.getElementById('apptTime').value,type:document.getElementById('apptType').value,value:document.getElementById('apptValue').value||patient.defaultValue||0,notes:document.getElementById('apptNotes').value,paid:currentApptId?appointments.find(a=>a.id===currentApptId).paid:false,cancelled:currentApptId?appointments.find(a=>a.id===currentApptId).cancelled:false};
-  if(currentApptId){const idx=appointments.findIndex(a=>a.id===currentApptId);appointments[idx]=data;}else{appointments.push(data);}
-  saveUserData();
-  closeModal('appointmentModal');
-  renderCalendar();
-  updateFinancialSummary();
-}
-
-function toggleCancelAppointment(){if(!currentApptId)return;toggleCancelAppointmentDirect(currentApptId);closeModal('appointmentModal');}
-function toggleCancelAppointmentDirect(id){const appt=appointments.find(a=>a.id===id);appt.cancelled=!appt.cancelled;saveUserData();renderCalendar();updateFinancialSummary();}
-
-function sendAppointmentWhatsApp(){
-  if(!currentApptId)return;
-  const appt=appointments.find(a=>a.id===currentApptId);
-  const patient=patients.find(p=>p.id===appt.patientId);
-  const sig=getProfessionalSignature();
-  let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nConfirmação de agendamento:\\n\\n📅 Data: '+formatDate(appt.date)+'\\n⏰ Horário: '+appt.time+'\\n🏥 Local: '+sig.clinic+'\\n\\n';
-  if(!appt.cancelled){msg+='Estamos te aguardando!'+(sig.name?'\\nAtenciosamente, '+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');}
-  else{msg+='⚠️ ATENÇÃO: Agendamento CANCELADO.';}
-  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
-}
-
-function renderFinancialTable(){
-  const tbody=document.getElementById('financialTable');
-  tbody.innerHTML='';
-  appointments.filter(a=>!a.cancelled).sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(appt=>{
-    const patient=patients.find(p=>p.id===appt.patientId);
-    const row=document.createElement('tr');
-    row.innerHTML='<td>'+(patient?patient.name:'-')+'</td><td>'+formatDate(appt.date)+'</td><td>'+(appt.type==='laser'?'Laser':'Normal')+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'✅ Pago':'⏳ Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
-    tbody.appendChild(row);
-  });
-}
-
 function renderPatientFinance(){
   const patientAppts=appointments.filter(a=>a.patientId===currentPatientId&&!a.cancelled);
   const paid=patientAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
@@ -789,7 +946,7 @@ function renderPatientFinance(){
     const row=document.createElement('tr');
     row.className='session-row'+(selectedSessions.has(appt.id)?' selected':'');
     row.onclick=(e)=>{if(e.target.type!=='checkbox')toggleSessionSelection(appt.id);};
-    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\''+appt.id+'\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\''+appt.id+'\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
+    row.innerHTML='<td><input type="checkbox" class="session-checkbox" '+(selectedSessions.has(appt.id)?'checked':'')+' onchange="toggleSessionSelection(\\''+appt.id+'\\')"></td><td>'+formatDate(appt.date)+'</td><td>'+appt.type+'</td><td>R$ '+parseFloat(appt.value||0).toFixed(2)+'</td><td>'+(appt.paid?'Pago':'Pendente')+'</td><td><button class="btn btn-primary" onclick="togglePayment(\\''+appt.id+'\\')">'+(appt.paid?'Desmarcar':'Pagar')+'</button></td>';
     tbody.appendChild(row);
   });
 }
@@ -818,26 +975,7 @@ function sendPendingSessionsWhatsApp(){
   let msg='Olá '+patient.name+', tudo bem? 😊\\n\\nSessões em aberto:\\n\\n'+sessionsList+'\\n💰 *Total: R$ '+total.toFixed(2)+'*\\n\\n';
   if(sig.pix)msg+='💳 Chave Pix:\\n*'+sig.pix+'*\\n\\n';
   msg+='Qualquer dúvida, estou à disposição!'+(sig.name?'\\n\\nAtenciosamente,\\n'+sig.name:'')+(sig.crefito?'\\n'+sig.crefito:'');
-  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
-}
-
-function updateFinancialSummary(){
-  const activeAppts=appointments.filter(a=>!a.cancelled);
-  const received=activeAppts.filter(a=>a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-  const pending=activeAppts.filter(a=>!a.paid).reduce((s,a)=>s+parseFloat(a.value||0),0);
-  document.getElementById('totalReceived').textContent='R$ '+received.toFixed(2);
-  document.getElementById('totalPending').textContent='R$ '+pending.toFixed(2);
-  document.getElementById('totalSessions').textContent=activeAppts.length;
-}
-
-function togglePayment(id){
-  const appt=appointments.find(a=>a.id===id);
-  appt.paid=!appt.paid;
-  saveUserData();
-  renderFinancialTable();
-  updateFinancialSummary();
-  renderCalendar();
-  if(currentPatientId)renderPatientFinance();
+  window.open('https://wa.me/55'+patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(msg),'_blank');
 }
 
 function renderEvolutions(){
@@ -887,19 +1025,12 @@ function copyReport(){
 
 function sendReportWhatsApp(){
   const patient=patients.find(p=>p.id===currentPatientId);
-  window.open('https://wa.me/55'+patient.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(currentReport),'_blank');
+  window.open('https://wa.me/55'+patient.phone.replace(/\\D/g,'')+'?text='+encodeURIComponent(currentReport),'_blank');
 }
 
-function loadPatientSelect(){
-  const select=document.getElementById('apptPatient');
-  select.innerHTML='<option value="">Selecione...</option>';
-  patients.sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
-    const opt=document.createElement('option');
-    opt.value=p.id;
-    opt.textContent=p.name;
-    select.appendChild(opt);
-  });
-}
+// ============================================
+// FLUXO DE CAIXA
+// ============================================
 
 function showCashFlowTab(tab){
   document.querySelectorAll('#fluxo .tab').forEach(t=>t.classList.remove('active'));
@@ -930,7 +1061,7 @@ function renderCashFlow(){
   exitsBody.innerHTML='';
   monthExpenses.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(exp=>{
     const row=document.createElement('tr');
-    row.innerHTML='<td>'+formatDate(exp.date)+'</td><td>'+exp.description+'</td><td>'+exp.category+'</td><td>R$ '+parseFloat(exp.value||0).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\''+exp.id+'\')">🗑</button></td>';
+    row.innerHTML='<td>'+formatDate(exp.date)+'</td><td>'+exp.description+'</td><td>'+exp.category+'</td><td>R$ '+parseFloat(exp.value||0).toFixed(2)+'</td><td><button class="btn btn-danger" onclick="deleteExpense(\\''+exp.id+'\\')">🗑</button></td>';
     exitsBody.appendChild(row);
   });
   if(!document.getElementById('cfEntriesTab').classList.contains('active')&&!document.getElementById('cfExitsTab').classList.contains('active')){
@@ -967,6 +1098,10 @@ function saveExpense(){
   renderCashFlow();
 }
 
+// ============================================
+// RELATÓRIOS
+// ============================================
+
 function renderReports(){
   const month=document.getElementById('reportMonth').value;
   if(!month)return;
@@ -989,6 +1124,10 @@ function renderReports(){
     reportBody.appendChild(row);
   });
 }
+
+// ============================================
+// UTILITÁRIOS
+// ============================================
 
 function closeModal(id){
   document.getElementById(id).classList.remove('active');
